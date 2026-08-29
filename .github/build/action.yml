@@ -510,7 +510,6 @@ runs:
         # Exports for external kernel modules
         export BOARD_PLATFORM="${SOC}"
         export TARGET_BOARD_PLATFORM="${SOC}"
-        export MODNAME=audio_dlkm
         export KERNEL_BUILD=0
 
         MAKE_FLAGS+=(
