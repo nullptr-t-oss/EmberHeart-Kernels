@@ -536,7 +536,7 @@ runs:
             fi
             set -x
             #  The path that we pass in via the variable M needs to be a relative path relative to the kernel source directory
-            EXT_MOD_REL=$(realpath --relative-to="${KERNEL_DIR}" "${ROOT_DIR}/${EXT_MOD}")
+            EXT_MOD_REL=$(realpath -s --relative-to="${KERNEL_DIR}" "${ROOT_DIR}/${EXT_MOD}")
 
             # The object files will be stored here
             mkdir -p ${OUT}/${EXT_MOD_REL}
@@ -593,7 +593,7 @@ runs:
             set -x
 
             #  The path that we pass in via the variable M needs to be a relative path relative to the kernel source directory
-            EXT_MOD_REL=$(realpath --relative-to="${KERNEL_DIR}" "${ROOT_DIR}/${EXT_MOD}")
+            EXT_MOD_REL=$(realpath -s --relative-to="${KERNEL_DIR}" "${ROOT_DIR}/${EXT_MOD}")
 
             # The object files will be stored here
             mkdir -p ${OUT}/${EXT_MOD_REL}
