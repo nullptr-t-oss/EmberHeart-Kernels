@@ -67,8 +67,8 @@ runs:
         BUILD_USER="nullptr_t"
         BUILD_HOST="EmberHeart"
 
-        echo "KBUILD_BUILD_USER=${BUILD_USER}" >> "$GITHUB_ENV"
-        echo "KBUILD_BUILD_HOST=${BUILD_HOST}" >> "$GITHUB_ENV"
+        echo "KBUILD_BUILD_USER=${BUILD_USER}" >> "${GITHUB_ENV}"
+        echo "KBUILD_BUILD_HOST=${BUILD_HOST}" >> "${GITHUB_ENV}"
 
         echo ""
         echo "Build identity configured:"
@@ -209,7 +209,7 @@ runs:
         cd "${ROOT_DIR}/common"
         if [[ -n "$INPUT_UNAME" ]]; then
           CUSTOM_LOCALVERSION="-${ANDROID_RELEASE}-${{ inputs.kernel_uname }}"
-          echo "CUSTOM_LOCALVERSION=$CUSTOM_LOCALVERSION" >> "$GITHUB_ENV"
+          echo "CUSTOM_LOCALVERSION=$CUSTOM_LOCALVERSION" >> "${GITHUB_ENV}"
           echo "::note::Using kernel version: ${kernelversion}${CUSTOM_LOCALVERSION}"
         else
           SCM=$(./scripts/setlocalversion 2>/dev/null || echo "-g$(git rev-parse --short HEAD)") || echo "ERROR"
@@ -1437,8 +1437,8 @@ runs:
           duration="${{ steps.build.outputs.duration }}s"
         fi
 
-        echo "BUILD_TIME=${duration}" "$GITHUB_ENV"
-        echo "duration=${duration}" >> "$GITHUB_OUTPUT"
+        echo "BUILD_TIME=${duration}" "${GITHUB_ENV}"
+        echo "duration=${duration}" >> "${GITHUB_OUTPUT}"
 
     - name: Push build Summary
       shell: bash
@@ -1481,5 +1481,5 @@ runs:
           echo "> [!IMPORTANT]"
           echo "> ## CCache Statistics :"
           echo "> $(ccache -s -v)"
-        } >> "$GITHUB_STEP_SUMMARY"
+        } >> "${GITHUB_STEP_SUMMARY}"
 

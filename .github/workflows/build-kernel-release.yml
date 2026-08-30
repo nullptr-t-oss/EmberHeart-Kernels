@@ -164,9 +164,9 @@ jobs:
           filtered=$(jq -c "$jq_filter" matrix.json)
           wrapped=$(jq -n --argjson items "$filtered" '{ include: $items }')
 
-          echo "matrix<<MATRIX_EOF" >> "$GITHUB_OUTPUT"
-          echo "$wrapped" >> "$GITHUB_OUTPUT"
-          echo "MATRIX_EOF" >> "$GITHUB_OUTPUT"
+          echo "matrix<<MATRIX_EOF" >> "${GITHUB_OUTPUT}"
+          echo "$wrapped" >> "${GITHUB_OUTPUT}"
+          echo "MATRIX_EOF" >> "${GITHUB_OUTPUT}"
 
   build:
     name: Build ${{ matrix.product }} EmberHeart
@@ -204,9 +204,9 @@ jobs:
           set -euo pipefail
           if [ -z "${{ secrets.TG_BOT_TOKEN }}" ] || [ -z "${{ vars.TG_CHAT_ID }}" ] || [ -z "${{ secrets.TG_API_ID }}" ] || [ -z "${{ secrets.TG_API_HASH }}" ]; then
             echo "::warning::Telegram secrets not configured — notifications will be skipped (expected on forks)."
-            echo "enabled=false" >> "$GITHUB_OUTPUT"
+            echo "enabled=false" >> "${GITHUB_OUTPUT}"
           else
-            echo "enabled=true" >> "$GITHUB_OUTPUT"
+            echo "enabled=true" >> "${GITHUB_OUTPUT}"
           fi
 
       - name: Determine notify thread
@@ -216,11 +216,11 @@ jobs:
         run: |
           set -euo pipefail
           if [ "${{ inputs.release_type }}" != "none" ]; then
-            echo "thread_id=${{ vars.TG_THREAD_RELEASE }}" >> "$GITHUB_OUTPUT"
+            echo "thread_id=${{ vars.TG_THREAD_RELEASE }}" >> "${GITHUB_OUTPUT}"
           else
-            echo "thread_id=${{ vars.TG_THREAD_DEV }}" >> "$GITHUB_OUTPUT"
+            echo "thread_id=${{ vars.TG_THREAD_DEV }}" >> "${GITHUB_OUTPUT}"
           fi
-          echo "short_sha=$(echo '${{ github.sha }}' | cut -c1-7)" >> "$GITHUB_OUTPUT"
+          echo "short_sha=$(echo '${{ github.sha }}' | cut -c1-7)" >> "${GITHUB_OUTPUT}"
 
       - name: Start local Telegram Bot API server
         id: tg_server
@@ -240,13 +240,13 @@ jobs:
           if ! docker ps --filter "name=tg-bot-api-${{ strategy.job-index }}" --filter "status=running" | grep -q tg-bot-api; then
             echo "::warning::Telegram Bot API container is not running — dumping logs and skipping notifications."
             docker logs "tg-bot-api-${{ strategy.job-index }}" || true
-            echo "enabled=false" >> "$GITHUB_OUTPUT"
+            echo "enabled=false" >> "${GITHUB_OUTPUT}"
             exit 0
           fi
 
           HOST_PORT=$(docker port tg-bot-api-${{ strategy.job-index }} 8081/tcp | cut -d: -f2)
-          echo "container_name=tg-bot-api-${{ strategy.job-index }}" >> "$GITHUB_OUTPUT"
-          echo "api_base=http://localhost:${HOST_PORT}" >> "$GITHUB_OUTPUT"
+          echo "container_name=tg-bot-api-${{ strategy.job-index }}" >> "${GITHUB_OUTPUT}"
+          echo "api_base=http://localhost:${HOST_PORT}" >> "${GITHUB_OUTPUT}"
 
           for i in $(seq 1 15); do
             if curl -sf "http://localhost:${HOST_PORT}/bot${{ secrets.TG_BOT_TOKEN }}/getMe" > /dev/null; then
@@ -256,7 +256,7 @@ jobs:
             sleep 1
           done
           echo "::warning::Local Bot API server did not become ready in time — notifications will be skipped for this run."
-          echo "enabled=false" >> "$GITHUB_OUTPUT"
+          echo "enabled=false" >> "${GITHUB_OUTPUT}"
 
       - name: Notify - Build Started
         if: steps.tg_check.outputs.enabled == 'true' && steps.tg_server.outputs.api_base != ''
@@ -368,9 +368,9 @@ jobs:
             [ "$BUILD_MODULES_OUTCOME" == "cancelled" ] && { REASON="Cancelled"; EMOJI="🚫"; }
           fi
 
-          echo "stage=$STAGE" >> "$GITHUB_OUTPUT"
-          echo "reason=$REASON" >> "$GITHUB_OUTPUT"
-          echo "emoji=$EMOJI" >> "$GITHUB_OUTPUT"
+          echo "stage=$STAGE" >> "${GITHUB_OUTPUT}"
+          echo "reason=$REASON" >> "${GITHUB_OUTPUT}"
+          echo "emoji=$EMOJI" >> "${GITHUB_OUTPUT}"
 
       - name: Notify - Build Failed
         if: (failure() || cancelled()) && steps.tg_check.outputs.enabled == 'true'
@@ -455,7 +455,7 @@ jobs:
           else
             RELEASE_NAME="${DEVICE} ( ${{ needs.build.outputs.codename }} ) ${{ needs.build.outputs.os }} EmberHeart Kernel With KernelSU Next ${{ needs.build.outputs.ksun_tag }} & Nethunter"
           fi
-          echo "RELEASE_NAME=$RELEASE_NAME" >> "$GITHUB_ENV"
+          echo "RELEASE_NAME=$RELEASE_NAME" >> "${GITHUB_ENV}"
 
       - name: Generate and Create New Tag
         run: |
@@ -468,7 +468,7 @@ jobs:
           fi
           NEW_TAG=$(echo "$LATEST_TAG" | awk -F'-r' '{suffix=$2; if (!suffix) suffix=0; suffix++; printf "%s-r%d", $1, suffix}')
           echo "New tag: $NEW_TAG"
-          echo "NEW_TAG=${NEW_TAG}" >> $GITHUB_ENV
+          echo "NEW_TAG=${NEW_TAG}" >> ${GITHUB_ENV}
           git tag $NEW_TAG
           git push origin $NEW_TAG
 
