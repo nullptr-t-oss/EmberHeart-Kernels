@@ -90,6 +90,8 @@ runs:
           exit 1
         fi
 
+        ( "${MTIME_CACHE}" susfs )
+
         echo "susfs_dir=$(pwd)" >> "${GITHUB_ENV}"
 
     - name: Create custom defconfig fragment
@@ -153,6 +155,8 @@ runs:
         echo "ksun_tag=${KSUN_TAG}" >> "${GITHUB_OUTPUT}"
         echo "KernelSU Next Version: ${KSU_VERSION}"
         echo "KernelSU Next added (commit: ${KSUN_COMMIT_SHA}) ✅"
+
+        ( cd "${ROOT_DIR}/KernelSU-Next" && "${MTIME_CACHE}" ksun )
         echo "::endgroup::"
 
     - name: Apply SUSFS Patches
@@ -192,58 +196,58 @@ runs:
         case "${susfs_version}" in
           "v1.5.8")
             cp "${susfs_dir}/kernel_patches/KernelSU/10_enable_susfs_for_ksu.patch" ./
-            patch -p1 --forward --fuzz=3 < 10_enable_susfs_for_ksu.patch  || true
+            patch -p1 --forward --fuzz=3 -i 10_enable_susfs_for_ksu.patch  || true
             cp "${WILD_KERNEL_PATCHES}/next/susfs_fix_patches/${susfs_version}/fix_apk_sign.c.patch" ./
-            patch -p1 --forward --fuzz=3 < fix_apk_sign.c.patch
+            patch -p1 --forward --fuzz=3 -i fix_apk_sign.c.patch
             cp "${WILD_KERNEL_PATCHES}/next/susfs_fix_patches/${susfs_version}/fix_core_hook.c.patch" ./
-            patch -p1 --forward --fuzz=3 < fix_core_hook.c.patch
+            patch -p1 --forward --fuzz=3 -i fix_core_hook.c.patch
             cp "${WILD_KERNEL_PATCHES}/next/susfs_fix_patches/${susfs_version}/fix_selinux.c.patch" ./
-            patch -p1 --forward --fuzz=3 < fix_selinux.c.patch
+            patch -p1 --forward --fuzz=3 -i fix_selinux.c.patch
             cp "${WILD_KERNEL_PATCHES}/next/susfs_fix_patches/${susfs_version}/fix_ksud.c.patch" ./
-            patch -p1 --forward --fuzz=3 < fix_ksud.c.patch
+            patch -p1 --forward --fuzz=3 -i fix_ksud.c.patch
             ;;
           "v1.5.9"|"v1.5.10"|"v1.5.11"|"v1.5.12")
             cp ${susfs_dir}/kernel_patches/KernelSU/10_enable_susfs_for_ksu.patch ./
-            patch -p1 --forward < 10_enable_susfs_for_ksu.patch  || true
+            patch -p1 --forward -i 10_enable_susfs_for_ksu.patch  || true
             for file in $(find ./kernel -maxdepth 2 -name "*.rej" -printf "%f\n" | cut -d'.' -f1); do
               echo "Patching file: ${file}.c with fix_${file}.c.patch"
-              patch -p1 --forward < "${WILD_KERNEL_PATCHES}/next/susfs_fix_patches/${susfs_version}/fix_${file}.c.patch"
+              patch -p1 --forward -i "${WILD_KERNEL_PATCHES}/next/susfs_fix_patches/${susfs_version}/fix_${file}.c.patch"
             done
-            patch -p1 --forward < "${WILD_KERNEL_PATCHES}/next/susfs_fix_patches/${susfs_version}/fix_kernel_compat.c.patch"
+            patch -p1 --forward -i "${WILD_KERNEL_PATCHES}/next/susfs_fix_patches/${susfs_version}/fix_kernel_compat.c.patch"
             ;;
           "v2.0.0")
             cp "${susfs_dir}/kernel_patches/KernelSU/10_enable_susfs_for_ksu.patch"./
 
-            patch -p1 --forward < 10_enable_susfs_for_ksu.patch  || true
+            patch -p1 --forward -i 10_enable_susfs_for_ksu.patch  || true
 
             for file in $(find ./kernel -maxdepth 2 -name "*.rej" -exec basename {} .rej \;); do
               echo "Patching file: ${file} with fix_${file}.patch"
-              patch -p1 --forward < "${WILD_KERNEL_PATCHES}/next/susfs_fix_patches/${susfs_version}/fix_${file}.patch"
+              patch -p1 --forward -i "${WILD_KERNEL_PATCHES}/next/susfs_fix_patches/${susfs_version}/fix_${file}.patch"
             done
             echo "Patching Hook Mode!"
-            patch -p1 --forward < "${WILD_KERNEL_PATCHES}/next/susfs_fix_patches/${susfs_version}/overwrite_hook_mode.patch"
+            patch -p1 --forward -i "${WILD_KERNEL_PATCHES}/next/susfs_fix_patches/${susfs_version}/overwrite_hook_mode.patch"
             echo "Patching KSU_TOOLKIT Support for SuSFS kernel!"
-            patch -p1 --forward < "${WILD_KERNEL_PATCHES}/next/susfs_fix_patches/${susfs_version}/ksu_toolkit.patch"
+            patch -p1 --forward -i "${WILD_KERNEL_PATCHES}/next/susfs_fix_patches/${susfs_version}/ksu_toolkit.patch"
             ;;
           "v2.1.0")
-            patch -p1 --forward < "${susfs_dir}/kernel_patches/KernelSU/10_enable_susfs_for_ksu.patch" || true
+            patch -p1 --forward -i "${susfs_dir}/kernel_patches/KernelSU/10_enable_susfs_for_ksu.patch" || true
             for file in $(find ./kernel -maxdepth 2 -name "*.rej" -exec basename {} .rej \;); do
               echo "Patching file: ${file} with fix_${file}.patch"
-              patch -p1 --forward < "${WILD_KERNEL_PATCHES}/next/susfs_fix_patches/${susfs_version}/fix_${file}.patch"
+              patch -p1 --forward -i "${WILD_KERNEL_PATCHES}/next/susfs_fix_patches/${susfs_version}/fix_${file}.patch"
             done
             echo "Patching Hook Mode!"
-            patch -p1 --forward < "${WILD_KERNEL_PATCHES}/next/susfs_fix_patches/${susfs_version}/overwrite_hook_mode.patch"
+            patch -p1 --forward -i "${WILD_KERNEL_PATCHES}/next/susfs_fix_patches/${susfs_version}/overwrite_hook_mode.patch"
             echo "Patching KSU_TOOLKIT Support for SusFS kernel!"
-            patch -p1 --forward < "${WILD_KERNEL_PATCHES}/next/susfs_fix_patches/${susfs_version}/ksu_toolkit.patch"
+            patch -p1 --forward -i "${WILD_KERNEL_PATCHES}/next/susfs_fix_patches/${susfs_version}/ksu_toolkit.patch"
 
             if [[ "$KSUVER" -le 33095 ]]; then
               echo "Patching Multi-manager Support for SusFS kernel!"
-              patch -p1 --forward < "${WILD_KERNEL_PATCHES}/next/susfs_fix_patches/${susfs_version}/multi_manager.patch"
+              patch -p1 --forward -i "${WILD_KERNEL_PATCHES}/next/susfs_fix_patches/${susfs_version}/multi_manager.patch"
             fi
 
             if [[ "$KSUVER" -ge 33068 ]] && [[ "$KSUVER" -lt 33070 ]]; then
                 echo "Patching Multi-manager sepolicy Support for SusFS kernel!"
-                patch -p1 --forward < "${WILD_KERNEL_PATCHES}/next/susfs_fix_patches/${susfs_version}/multi_sepolicy_fix.patch"
+                patch -p1 --forward -i "${WILD_KERNEL_PATCHES}/next/susfs_fix_patches/${susfs_version}/multi_sepolicy_fix.patch"
             fi
             ;;
           *)
@@ -317,7 +321,7 @@ runs:
           fi
         fi
 
-        patch -p1 < 50_add_susfs_in_${{ env.SUSFS_KERNEL_BRANCH }}.patch
+        patch -p1 -i 50_add_susfs_in_${{ env.SUSFS_KERNEL_BRANCH }}.patch
 
         # Revert Fake kernel patch
         if [[ "$fake_patched_expand" = 1 ]]; then
@@ -372,7 +376,7 @@ runs:
         MIN_VERSION="5.16"
         if [[ "$(printf '%s\n' "${KERNEL_VERSION}" "${MIN_VERSION}" | sort -V | head -n1)" == "${KERNEL_VERSION}" ]]; then
           echo "Patching ptrace!"
-          patch -p1 -F 3 < "${WILD_KERNEL_PATCHES}/gki_ptrace.patch"
+          patch -p1 -F 3 -i "${WILD_KERNEL_PATCHES}/gki_ptrace.patch"
         else
           echo "Kernel >= $MIN_VERSION, skipping ptrace patch"
         fi
@@ -400,7 +404,7 @@ runs:
       run: |
         set -euo pipefail
         cd "${ROOT_DIR}/common"
-        patch -p1 < ${WILD_KERNEL_PATCHES}/next/scope_min_manual_hooks_v1.4.patch
+        patch -p1 -i ${WILD_KERNEL_PATCHES}/next/scope_min_manual_hooks_v1.4.patch
 
     - name: Add KernelSU-Next Configuration Settings
       shell: bash
@@ -475,9 +479,9 @@ runs:
           shopt -s nullglob
 
           for patch in "${KERNEL_PATCHES}/kernel_patches/${CODENAME}-${OS_SHORT}/common"/*.patch; do
-            if patch -p1 -s -N -F0 --dry-run < "$patch" >/dev/null 2>&1; then
+            if patch -p1 -s -N -F0 --dry-run -i "$patch" >/dev/null 2>&1; then
               echo "Applying patch: ${patch}"
-              patch -p1 -N -F0 < "${patch}"
+              patch -p1 -N -F0 -i "${patch}"
             else
               echo "Skipping patch (conflicts or already applied): ${patch}"
             fi
@@ -548,9 +552,9 @@ runs:
         )
 
         for patch in "${PATCHES[@]}"; do
-          if patch -p1 -s -N -F0 --dry-run < "$patch" >/dev/null 2>&1; then
+          if patch -p1 -s -N -F0 --dry-run -i "$patch" >/dev/null 2>&1; then
             echo "Applying patch: ${patch}"
-            patch -p1 -N -F0 < "${patch}"
+            patch -p1 -N -F0 -i "${patch}"
           else
             echo "Skipping patch (conflicts or already applied): ${patch}"
           fi
@@ -657,54 +661,54 @@ runs:
         echo "Applying patch to enable SYSVIPC without breaking ABI"
         case "$BRANCH" in
           oneplus/sm8850|oneplus/sm8845)
-            if patch -R -p1 -s -N --dry-run < "${WILD_KERNEL_PATCHES}/common/droidspaces/fix_sysvipc_kabi_a16-6.12.patch" >/dev/null 2>&1; then
+            if patch -R -p1 -s -N --dry-run -i "${WILD_KERNEL_PATCHES}/common/droidspaces/fix_sysvipc_kabi_a16-6.12.patch" >/dev/null 2>&1; then
               echo "::note::Patch already applied. Skipping."
             else
-              patch -p1 -N < "${WILD_KERNEL_PATCHES}/common/droidspaces/fix_sysvipc_kabi_a16-6.12.patch"
+              patch -p1 -N -i "${WILD_KERNEL_PATCHES}/common/droidspaces/fix_sysvipc_kabi_a16-6.12.patch"
             fi
             ;;
           oneplus/sm8550|oneplus/sm7550)
-            if patch -R -p1 -s -N --dry-run < "${WILD_KERNEL_PATCHES}/common/droidspaces/fix_sysvipc_kabi_1_2_3.patch" >/dev/null 2>&1; then
+            if patch -R -p1 -s -N --dry-run -i "${WILD_KERNEL_PATCHES}/common/droidspaces/fix_sysvipc_kabi_1_2_3.patch" >/dev/null 2>&1; then
               echo "::note::Patch already applied. Skipping."
             else
-              patch -p1 -N < "${WILD_KERNEL_PATCHES}/common/droidspaces/fix_sysvipc_kabi_1_2_3.patch"
+              patch -p1 -N -i "${WILD_KERNEL_PATCHES}/common/droidspaces/fix_sysvipc_kabi_1_2_3.patch"
             fi
             ;;
           oneplus/sm8450|oneplus/sm8475|oneplus/mt6895|oneplus/mt6983|oneplus/mt6789)
             if [[ "$ANDROID_RELEASE" = "android12" ]] && [[ "$KERNEL_VERSION" = "5.10" ]]; then
-              if patch -R -p1 -s -N --dry-run < "${WILD_KERNEL_PATCHES}/common/droidspaces/fix_sysvipc_kabi_bypass_a16-6.12_below.patch" >/dev/null 2>&1; then
+              if patch -R -p1 -s -N --dry-run -i "${WILD_KERNEL_PATCHES}/common/droidspaces/fix_sysvipc_kabi_bypass_a16-6.12_below.patch" >/dev/null 2>&1; then
                 echo "::note::Patch already applied. Skipping."
               else
-                patch -p1 -N < "${WILD_KERNEL_PATCHES}/common/droidspaces/fix_sysvipc_kabi_bypass_a16-6.12_below.patch"
+                patch -p1 -N -i "${WILD_KERNEL_PATCHES}/common/droidspaces/fix_sysvipc_kabi_bypass_a16-6.12_below.patch"
               fi
 
-              if patch -R -p1 -s -N --dry-run < "${WILD_KERNEL_PATCHES}/common/droidspaces/fix_abi_padding_for_posix_mqueue.patch" >/dev/null 2>&1; then
+              if patch -R -p1 -s -N --dry-run -i "${WILD_KERNEL_PATCHES}/common/droidspaces/fix_abi_padding_for_posix_mqueue.patch" >/dev/null 2>&1; then
                 echo "::note::Patch already applied. Skipping."
               else
-                patch -p1 -N < "${WILD_KERNEL_PATCHES}/common/droidspaces/fix_abi_padding_for_posix_mqueue.patch"
+                patch -p1 -N -i "${WILD_KERNEL_PATCHES}/common/droidspaces/fix_abi_padding_for_posix_mqueue.patch"
               fi
             else
 
-              if patch -R -p1 -s -N --dry-run < "${WILD_KERNEL_PATCHES}/common/droidspaces/fix_sysvipc_kabi_6_7_8.patch" >/dev/null 2>&1; then
+              if patch -R -p1 -s -N --dry-run -i "${WILD_KERNEL_PATCHES}/common/droidspaces/fix_sysvipc_kabi_6_7_8.patch" >/dev/null 2>&1; then
                 echo "::note::Patch already applied. Skipping."
               else
-                patch -p1 -N < "${WILD_KERNEL_PATCHES}/common/droidspaces/fix_sysvipc_kabi_6_7_8.patch"
+                patch -p1 -N -i "${WILD_KERNEL_PATCHES}/common/droidspaces/fix_sysvipc_kabi_6_7_8.patch"
               fi
 
             fi
             ;;
           los/sm8550)
-            if patch -R -p1 -s -N --dry-run < "${WILD_KERNEL_PATCHES}/common/droidspaces/fix_sysvipc_kabi_3_4_5.patch" >/dev/null 2>&1; then
+            if patch -R -p1 -s -N --dry-run -i "${WILD_KERNEL_PATCHES}/common/droidspaces/fix_sysvipc_kabi_3_4_5.patch" >/dev/null 2>&1; then
                 echo "::note::Patch already applied. Skipping."
             else
-                patch -p1 -N < "${WILD_KERNEL_PATCHES}/common/droidspaces/fix_sysvipc_kabi_3_4_5.patch"
+                patch -p1 -N -i "${WILD_KERNEL_PATCHES}/common/droidspaces/fix_sysvipc_kabi_3_4_5.patch"
             fi
             ;;
           *)
-            if patch -R -p1 -s -N --dry-run < "${WILD_KERNEL_PATCHES}/common/droidspaces/fix_sysvipc_kabi_6_7_8.patch" >/dev/null 2>&1; then
+            if patch -R -p1 -s -N --dry-run -i "${WILD_KERNEL_PATCHES}/common/droidspaces/fix_sysvipc_kabi_6_7_8.patch" >/dev/null 2>&1; then
               echo "::note::Patch already applied. Skipping."
             else
-              patch -p1 -N < "${WILD_KERNEL_PATCHES}/common/droidspaces/fix_sysvipc_kabi_6_7_8.patch"
+              patch -p1 -N -i "${WILD_KERNEL_PATCHES}/common/droidspaces/fix_sysvipc_kabi_6_7_8.patch"
             fi
             ;;
         esac

@@ -30,11 +30,6 @@ on:
           - HOS
           - CUSTOM
         default: OOS16_CUSTOM
-      use_custom_repo_parser:
-        description: 'Do you want to use custom repo parser?'
-        required: false
-        type: boolean
-        default: false
       use_opt_patches:
         description: 'Do you want to add optimization patches in kernel?'
         required: true
@@ -290,7 +285,6 @@ jobs:
         with:
           op_config_json: ${{ toJSON(matrix) }}
           manifest: ${{ inputs.manifest }}
-          use_custom_repo_parser: ${{ inputs.use_custom_repo_parser }}
           clang_version: ${{ inputs.clang_version }}
           common_branch_or_commit: ${{ inputs.common_branch_or_commit }}
           msm_branch_or_commit: ${{ inputs.msm_branch_or_commit }}

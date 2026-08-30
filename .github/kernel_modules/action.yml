@@ -89,9 +89,9 @@ runs:
           shopt -s nullglob
 
           for patch in "${KERNEL_PATCHES}/kernel_patches/${CODENAME}-${OS_SHORT}/msm"/*.patch; do
-            if patch -p1 -s -N -F0 --dry-run < "$patch" >/dev/null 2>&1; then
+            if patch -p1 -s -N -F0 --dry-run -i "$patch" >/dev/null 2>&1; then
               echo "Applying patch: ${patch}"
-              patch -p1 -N -F0 < "${patch}"
+              patch -p1 -N -F0 -i "${patch}"
             else
               echo "Skipping patch (conflicts or already applied): ${patch}"
             fi
@@ -111,6 +111,7 @@ runs:
         fi
         cd "${ROOT_DIR}/${KERNEL_DIR}"
         curl -LSs "https://raw.githubusercontent.com/Poko-Apps/MemKernel/main/kernel/setup.sh" | bash -s M mem-kernel
+        ( cd MemKernel && "${MTIME_CACHE}" memk )
 
     - name: Add rtw88 modules
       shell: bash
@@ -126,3 +127,4 @@ runs:
         git clone https://github.com/lwfinger/rtw88.git
         sed -i 's/$(CONFIG_RTW88)/m/g' Makefile
         sed -i '/^source "drivers\/net\/wireless\/realtek\/rtw88\/Kconfig"$/s/.*/ /' Kconfig
+        ( cd rtw88 && "${MTIME_CACHE}" rtw88 )

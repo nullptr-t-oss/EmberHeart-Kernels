@@ -46,17 +46,11 @@ runs:
       run: |
         set -euo pipefail
 
-        CCACHE_DIR="${OUT_DIR}"
+        CCACHE_DIR="${OUT_DIR}/ccache"
         echo "CCACHE_DIR=${CCACHE_DIR}" >> ${GITHUB_ENV}
         mkdir -p "${CCACHE_DIR}"
         ccache -o compression=false
         ccache -M 5G
-
-    - name: Restore ccache
-      uses: actions/cache/restore@v5
-      with:
-        path: ${{ env.CCACHE_DIR }}
-        key: ccache-${{ env.CODENAME }}-${{ env.OS_SHORT }}-${{ inputs.optimize_level }}-${{ env.KERNEL_VERSION }}
 
     - name: Set  KBuild Identity
       shell: bash
@@ -368,7 +362,7 @@ runs:
         export DTC_FLAGS="-@"
         export MSM_ARCH="${SOC}"
         export DTB_TYPES="${MSM_ARCH}-overlays-"
-        OUT="${OUT_DIR}/gki_kernel"
+        OUT="${OUT_DIR}/gki-kernel"
 
         _line
 
@@ -408,7 +402,7 @@ runs:
         _line
 
         MAKE_GOALS="modules_install"
-        INSTALL_MOD_PATH="${OUT_DIR}/gki_kernel/modules_staging"
+        INSTALL_MOD_PATH="${OUT_DIR}/gki-kernel/modules_staging"
 
         echo " Installing kernel modules to staging directory"
         set -x
@@ -438,7 +432,7 @@ runs:
         done
 
         if [[ "${TREE}" == "monolithic" ]]; then
-          INSTALL_DTBS_PATH="${OUT_DIR}/gki_kernel/dtb_staging"
+          INSTALL_DTBS_PATH="${OUT_DIR}/gki-kernel/dtb_staging"
           MAKE_GOALS="dtbs_install"
 
           echo " Installing dtbs to staging directory"
@@ -623,17 +617,17 @@ runs:
 
         echo "duration=${SECONDS}" >> "${GITHUB_OUTPUT}"
 
-    - name: Cleanup old ccache
+    - name: Cleanup old build cache
       shell: bash
       run: |
-        echo "WARNING: Deleting old ccache..." >&2
-        gh cache delete ccache-${{ env.CODENAME }}-${{ env.OS_SHORT }}-${{ inputs.optimize_level }}-${{ env.KERNEL_VERSION }} || true
+        echo "WARNING: Deleting build cache..." >&2
+        gh cache delete cache-${{ env.CODENAME }}-${{ env.OS_SHORT }}-${{ inputs.optimize_level }}-${{ env.KERNEL_VERSION }} || true
 
-    - name: Save ccache
+    - name: Save build cache
       uses: actions/cache/save@v5
       with:
-        path: ${{ env.CCACHE_DIR }}
-        key: ccache-${{ env.CODENAME }}-${{ env.OS_SHORT }}-${{ inputs.optimize_level }}-${{ env.KERNEL_VERSION }}
+        path: ${{ env.OUT_DIR }}
+        key: cache-${{ env.CODENAME }}-${{ env.OS_SHORT }}-${{ inputs.optimize_level }}-${{ env.KERNEL_VERSION }}
 
     - name: Create Kernel ZIP
       id: create_ak3_zip
@@ -683,7 +677,7 @@ runs:
         if [[ "${TREE}" == "mixed" ]]; then
           OUT="${OUT_DIR}/msm-kernel"
         else
-          OUT="${OUT_DIR}/gki_kernel"
+          OUT="${OUT_DIR}/gki-kernel"
         fi
 
         PREBUILTS="${KERNEL_PATCHES}/device/${CODENAME}-${OS_SHORT}/vendor_boot"
@@ -803,7 +797,7 @@ runs:
       shell: bash
       run: |
         PREBUILTS="${KERNEL_PATCHES}/device/${CODENAME}-${OS_SHORT}/system_dlkm"
-        OUT="${OUT_DIR}/gki_kernel/modules_staging"
+        OUT="${OUT_DIR}/gki-kernel/modules_staging"
         UNAME=$(ls "${OUT}/lib/modules/")
         MODULES_STAGING_ROOT="${OUT}/lib/modules/${UNAME}"
         SYSTEM_DLKM_STAGING_DIR="${OUT_DIR}/system_dlkm_staging"
@@ -835,7 +829,7 @@ runs:
           # Since we build all the modules at once in monolithic trees which includes modules that goto into vendor_boot
           # ramdisk, vendor_dlkm & system_dlkm, we need to filter what modules goes into system_dlkm
           #
-          # In mixed tree, we don't have the headache since all the modules built from gki_kernel goes into the
+          # In mixed tree, we don't have the headache since all the modules built from gki-kernel goes into the
           # system_dlkm partition.
 
           system_dlkm_modules_list=$(mktemp)
@@ -993,7 +987,7 @@ runs:
         if [[ "${TREE}" == "mixed" ]]; then
           OUT="${OUT_DIR}/msm_kernel/modules_staging"
         else
-          OUT="${OUT_DIR}/gki_kernel/modules_staging"
+          OUT="${OUT_DIR}/gki-kernel/modules_staging"
         fi
         UNAME=$(ls "${OUT}/lib/modules/")
         MODULES_STAGING_ROOT="${OUT}/lib/modules/${UNAME}"
@@ -1210,7 +1204,7 @@ runs:
         if [[ "${TREE}" == "mixed" ]]; then
           OUT="${OUT_DIR}/msm_kernel/modules_staging"
         else
-          OUT="${OUT_DIR}/gki_kernel/modules_staging"
+          OUT="${OUT_DIR}/gki-kernel/modules_staging"
         fi
         UNAME=$(ls "${OUT}/lib/modules/")
         MODULES_STAGING_ROOT="${OUT}/lib/modules/${UNAME}"

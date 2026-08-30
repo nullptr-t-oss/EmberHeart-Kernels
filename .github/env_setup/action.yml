@@ -10,11 +10,6 @@ inputs:
     required: true
     type: string
     default: OOS15
-  use_custom_repo_parser:
-    description: 'Do you want to use custom repo parser?'
-    required: true
-    type: string
-    default: 'false'
   clang_version:
     required: false
     type: string
@@ -238,11 +233,18 @@ runs:
         OUT_DIR="${ROOT_DIR}/out"
         DIST_DIR="${ROOT_DIR}/dist"
 
+
+        DYNAMIC_CACHE_DIR="${OUT_DIR}/dynamic_cache"
+        MTIME_CACHE="${KERNEL_PATCHES}/scripts/mtime_hack.sh"
+        MTIME_PATCH="${KERNEL_PATCHES}/scripts/patch"
+        MTIME_SED="${KERNEL_PATCHES}/scripts/sed"
+
         echo "Creating folder for configuration: ${ANDROID_BUILD_TOP}"
         mkdir -p "${ANDROID_BUILD_TOP}"
 
         mkdir -p "${OUT_DIR}"
         mkdir -p "${DIST_DIR}"
+        mkdir -p "${DYNAMIC_CACHE_DIR}"
         
         echo "ANDROID_BUILD_TOP=${ANDROID_BUILD_TOP}" >> "${GITHUB_ENV}"
 
@@ -254,69 +256,20 @@ runs:
         echo "WILD_KERNEL_PATCHES=${WILD_KERNEL_PATCHES}" >> "${GITHUB_ENV}"
         echo "KERNEL_PATCHES=${KERNEL_PATCHES}" >> "${GITHUB_ENV}"
         echo "BUILD_CONFIG=${BUILD_CONFIG}" >> "${GITHUB_ENV}"
+        echo "MTIME_CACHE=${MTIME_CACHE}" >> "${GITHUB_ENV}"
+        echo "DYNAMIC_CACHE_DIR=${DYNAMIC_CACHE_DIR}" >> "${GITHUB_ENV}"
+
+        chmod +x "${MTIME_SED}" "${MTIME_PATCH}" "${MTIME_CACHE}"
 
         # Install repo tool if missing
         REPO="/usr/local/bin/repo"
-        if [ ! -x "$REPO" ]; then
+        if [ ! -x "${REPO}" ]; then
           curl -s https://storage.googleapis.com/git-repo-downloads/repo -o "$REPO"
-          chmod +x "$REPO"
+          chmod +x "${REPO}"
         fi
-        echo "REPO=$REPO" >> "${GITHUB_ENV}"
-
-    - name: Format Manifest URL
-      if: ${{ inputs.use_custom_repo_parser == 'true' }}
-      shell: bash
-      run: |
-        if [[ "$MANIFEST" =~ ^https?:// ]]; then
-            # It is already a full URL, pass it through
-            echo "MANIFEST=$MANIFEST" >> ${GITHUB_ENV}
-        else
-            # Convert it to the raw GitHub URL coz my composite action supports only URLs
-            RAW_URL="https://raw.githubusercontent.com/OnePlusOSS/kernel_manifest/${BRANCH}/${MANIFEST}"
-            echo "MANIFEST=${RAW_URL}" >> ${GITHUB_ENV}
-        fi
-
-    - name: Prepare string to checkout custom branch or revision on custom manifest parser
-      if: ${{ inputs.use_custom_repo_parser == 'true' }}
-      shell: bash
-      run: |
-        OVERRIDES=""
-        cd "${ANDROID_BUILD_TOP}"
-
-        if [[ -n "${{ inputs.common_branch_or_commit }}" ]]; then
-          # Calculate the relative path from ANDROID_BUILD_TOP to COMMON
-          # coz we'll use this path to find the required project to be modified in manifest
-          REL_COMMON=$(realpath --relative-to="${ANDROID_BUILD_TOP}" "${ROOT_DIR}/common")
-          echo "[DEBUG] Calculated relative path: $REL_COMMON"
-
-          OVERRIDES="${REL_COMMON}=${{ inputs.common_branch_or_commit }}"
-        fi
-
-        if [[ -n "${{ inputs.msm_branch_or_commit }}" && "${TREE}" == "mixed" ]]; then
-          # Calculate the relative path from ANDROID_BUILD_TOP to MSM
-          # coz we'll use this path to find the required project to be modified in manifest
-          REL_MSM=$(realpath --relative-to="${ANDROID_BUILD_TOP}" "${ROOT_DIR}/msm-kernel")
-          OVERRIDES="$OVERRIDES,${REL_MSM}=${{ inputs.msm_branch_or_commit }}"
-          echo "[DEBUG] Calculated relative path: ${REL_MSM}"
-        fi
-
-        if [[ -n "${{ inputs.vendor_branch_or_commit }}" ]]; then
-          OVERRIDES="$OVERRIDES,./=${{ inputs.vendor_branch_or_commit }}"
-        fi
-
-        echo "Final override string: ${OVERRIDES#,}"
-        echo "PROJECT_OVERRIDE=${OVERRIDES#,}" >> "${GITHUB_ENV}"
-
-    - name: Download source via custom manifest parser
-      if: ${{ inputs.use_custom_repo_parser == 'true' }}
-      uses: nullptr-t-oss/turbo-repo-sync@main
-      with:
-        manifest_path: ${{ env.MANIFEST }}
-        workspace_dir: ${{ env.ANDROID_BUILD_TOP }}
-        project_overrides: ${{ env.PROJECT_OVERRIDE }}
+        echo "REPO=${REPO}" >> "${GITHUB_ENV}"
 
     - name: Optimize Global Git for Repo Tool
-      if: ${{ inputs.use_custom_repo_parser == 'false' }}
       shell: bash
       run: |
         set -euo pipefail
@@ -328,23 +281,22 @@ runs:
         git config --global index.threads $(nproc)
 
     - name: Initialize and Sync Kernel Source
-      if: ${{ inputs.use_custom_repo_parser == 'false' }}
       shell: bash
       run: |
         set -euo pipefail
         cd "${ANDROID_BUILD_TOP}"
         echo "Initializing and syncing kernel source..."
-        if [[ "$MANIFEST" == https://* ]]; then
+        if [[ "${MANIFEST}" == https://* ]]; then
           mkdir -p .repo/manifests
-          curl -s --fail --show-error --location --proto '=https' "$MANIFEST" -o .repo/manifests/temp_manifest.xml
-          "$REPO" init -u https://github.com/OnePlusOSS/kernel_manifest.git -b oneplus/sm8650 -m temp_manifest.xml --repo-rev=stable --depth=1 --no-clone-bundle --no-tags
+          curl -s --fail --show-error --location --proto '=https' "${MANIFEST}" -o .repo/manifests/temp_manifest.xml
+          "${REPO}" init -u https://github.com/OnePlusOSS/kernel_manifest.git -b oneplus/sm8650 -m temp_manifest.xml --repo-rev=stable --depth=1 --no-clone-bundle --no-tags
         else
-          "$REPO" init -u https://github.com/OnePlusOSS/kernel_manifest.git -b "$BRANCH" -m "$MANIFEST" --repo-rev=stable --depth=1 --no-clone-bundle --no-tags
+          "${REPO}" init -u https://github.com/OnePlusOSS/kernel_manifest.git -b "${BRANCH}" -m "${MANIFEST}" --repo-rev=stable --depth=1 --no-clone-bundle --no-tags
         fi
-        "$REPO" --version
+        "${REPO}" --version
         success=false
         for i in 1 2 3; do
-          if "$REPO" sync -c --no-clone-bundle --no-tags --optimized-fetch \
+          if "${REPO}" sync -c --no-clone-bundle --no-tags --optimized-fetch \
              -j"$(nproc --all)" --fail-fast; then
             success=true
             break
@@ -352,10 +304,9 @@ runs:
           echo "repo sync attempt $i failed; retrying..."
           sleep 30
         done
-        $success || { echo "repo sync failed after 3 attempts"; exit 1; }
+        ${success} || { echo "repo sync failed after 3 attempts"; exit 1; }
 
     - name: Checkout custom branch or commit hash for sources
-      if: ${{ inputs.use_custom_repo_parser == 'false' }}
       shell: bash
       run: |
         set -euo pipefail
@@ -411,7 +362,7 @@ runs:
           echo "prebuilt bins not found in kplatform, cloning prebuilts from aosp"
 
           mkdir -p "${ROOT_DIR}/build/build-tools"
-          cd "{ROOT_DIR}/build/build-tools" 
+          cd "${ROOT_DIR}/build/build-tools" 
           wget https://android.googlesource.com/kernel/prebuilts/build-tools/+archive/refs/heads/main-kernel.tar.gz
           tar -xzf main-kernel.tar.gz
           rm main-kernel.tar.gz
@@ -477,3 +428,23 @@ runs:
 
         echo "Clang detected ✅"
         echo "::endgroup::"
+
+    - name: Restore build cache
+      uses: actions/cache/restore@v5
+      with:
+        path: ${{ env.OUT_DIR }}
+        key: cache-${{ env.CODENAME }}-${{ env.OS_SHORT }}-${{ inputs.optimize_level }}-${{ env.KERNEL_VERSION }}
+
+    - name: Fast build mtime hack
+      shell: bash
+      run: |
+        # :)
+        # Hook default patch and sed commands
+        echo "${KERNEL_PATCHES}/scripts" >> "${GITHUB_PATH}"
+
+        if [[ "${TREE}" == "mixed" ]]; then
+          ( cd ${ROOT_DIR}/common && "${MTIME_CACHE}" gki-kernel )
+          (cd ${ROOT_DIR}/msm-kernel && "${MTIME_CACHE}" msm-kernel )
+        else
+          ( cd ${ROOT_DIR}/common && "${MTIME_CACHE}" gki-kernel )
+        fi
