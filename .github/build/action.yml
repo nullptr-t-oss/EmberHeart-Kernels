@@ -46,7 +46,7 @@ runs:
       run: |
         set -euo pipefail
 
-        CCACHE_DIR="${ANDROID_BUILD_TOP}"
+        CCACHE_DIR="${OUT_DIR}"
         echo "CCACHE_DIR=${CCACHE_DIR}" >> ${GITHUB_ENV}
         mkdir -p "${CCACHE_DIR}"
         ccache -o compression=false
@@ -56,7 +56,7 @@ runs:
       uses: actions/cache/restore@v5
       with:
         path: ${{ env.CCACHE_DIR }}
-        key: ccache-${{ env.CODENAME }}-${{ env.OS_SHORT }}-kernel-${{ inputs.optimize_level }}-${{ env.KERNEL_VERSION }}
+        key: ccache-${{ env.CODENAME }}-${{ env.OS_SHORT }}-${{ inputs.optimize_level }}-${{ env.KERNEL_VERSION }}
 
     - name: Set  KBuild Identity
       shell: bash
@@ -627,13 +627,13 @@ runs:
       shell: bash
       run: |
         echo "WARNING: Deleting old ccache..." >&2
-        gh cache delete ccache-${{ env.CODENAME }}-${{ env.OS_SHORT }}-kernel-${{ inputs.optimize_level }}-${{ env.KERNEL_VERSION }} || true
+        gh cache delete ccache-${{ env.CODENAME }}-${{ env.OS_SHORT }}-${{ inputs.optimize_level }}-${{ env.KERNEL_VERSION }} || true
 
     - name: Save ccache
       uses: actions/cache/save@v5
       with:
         path: ${{ env.CCACHE_DIR }}
-        key: ccache-${{ env.CODENAME }}-${{ env.OS_SHORT }}-kernel-${{ inputs.optimize_level }}-${{ env.KERNEL_VERSION }}
+        key: ccache-${{ env.CODENAME }}-${{ env.OS_SHORT }}-${{ inputs.optimize_level }}-${{ env.KERNEL_VERSION }}
 
     - name: Create Kernel ZIP
       id: create_ak3_zip
@@ -818,6 +818,10 @@ runs:
           set +a
         fi
 
+        # Clean staging dir, since we cache the OUT_DIR
+        mkdir -p ${SYSTEM_DLKM_STAGING_DIR}
+        rm -rf ${SYSTEM_DLKM_STAGING_DIR}
+
         if [[ "${TREE}" == "monolithic" && ! -f "${PREBUILTS}/system_dlkm.modules.include" ]]; then
           echo "::error:: system_dlkm.modules.include file is missing"
           exit 1
@@ -1000,6 +1004,10 @@ runs:
             . ${BUILD_CONFIG}
           set +a
         fi
+
+        # Clean staging dir, since we cache the OUT_DIR
+        mkdir -p ${VENDOR_BOOT_STAGING_DIR}
+        rm -rf ${VENDOR_BOOT_STAGING_DIR}
 
         # Create folder of highest depth amongst all
         mkdir -p "${DEPMOD_DIR_ROOT}"
@@ -1210,6 +1218,10 @@ runs:
             . ${BUILD_CONFIG}
           set +a
         fi
+
+        # Clean staging dir, since we cache the OUT_DIR
+        mkdir -p ${VENDOR_DLKM_STAGING_DIR}
+        rm -rf ${VENDOR_DLKM_STAGING_DIR}
 
         # Create folder of highest depth amongst all
         mkdir -p "${DEPMOD_DIR_ROOT}"
