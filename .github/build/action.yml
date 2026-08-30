@@ -40,6 +40,10 @@ outputs:
 runs:
   using: composite
   steps:
+    - name: Reset dynamic cache hooks
+      shell: bash
+      run: |
+        rm -rf "${KERNEL_PATCHES}/scripts" || true
 
     - name: Configure ccache
       shell: bash
