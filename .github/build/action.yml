@@ -1467,7 +1467,6 @@ runs:
           echo "> [!NOTE]"
           echo "> Model: ${{ env.PRODUCT }}"
           echo "> Kernel Release: ${{ env.kernel_release }}"
-          echo "> Kernel Uname: ${{ env.KERNEL_UNAME }}"
           echo ""
           echo "- KSUN Version: ${KSUVER:-unknown}"
           echo "- KSUN commit SHA: [${{ env.KSUN_COMMIT_SHA }}](https://github.com/KernelSU-Next/KernelSU-Next/commit/${{ env.KSUN_COMMIT_SHA }})"

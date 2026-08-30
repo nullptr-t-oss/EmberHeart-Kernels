@@ -51,7 +51,7 @@ runs:
         echo "zip_path=${DEBUG_ZIP}" >> "${GITHUB_OUTPUT}"
 
     - name: Upload modules artifacts
-      if: ${{ inputs.tg_enabled == 'true' && success() && steps.create_modules_zip.conclusion == 'success' }}
+      if: ${{ inputs.tg_enabled == 'true' }}
       uses: ./.github/telegram
       with:
         bot_token: ${{ inputs.tg_bot_token }}
