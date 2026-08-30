@@ -368,7 +368,7 @@ runs:
         export DTC_FLAGS="-@"
         export MSM_ARCH="${SOC}"
         export DTB_TYPES="${MSM_ARCH}-overlays-"
-        OUT="${OUT_DIR}/gki-kernel"
+        OUT="${OUT_DIR}/gki_kernel"
 
         _line
 
@@ -408,7 +408,7 @@ runs:
         _line
 
         MAKE_GOALS="modules_install"
-        INSTALL_MOD_PATH="${OUT_DIR}/gki-kernel/modules_staging"
+        INSTALL_MOD_PATH="${OUT_DIR}/gki_kernel/modules_staging"
 
         echo " Installing kernel modules to staging directory"
         set -x
@@ -438,7 +438,7 @@ runs:
         done
 
         if [[ "${TREE}" == "monolithic" ]]; then
-          INSTALL_DTBS_PATH="${OUT_DIR}/gki-kernel/dtb_staging"
+          INSTALL_DTBS_PATH="${OUT_DIR}/gki_kernel/dtb_staging"
           MAKE_GOALS="dtbs_install"
 
           echo " Installing dtbs to staging directory"
@@ -683,7 +683,7 @@ runs:
         if [[ "${TREE}" == "mixed" ]]; then
           OUT="${OUT_DIR}/msm-kernel"
         else
-          OUT="${OUT_DIR}/gki-kernel"
+          OUT="${OUT_DIR}/gki_kernel"
         fi
 
         PREBUILTS="${KERNEL_PATCHES}/device/${CODENAME}-${OS_SHORT}/vendor_boot"
@@ -825,7 +825,7 @@ runs:
           # Since we build all the modules at once in monolithic trees which includes modules that goto into vendor_boot
           # ramdisk, vendor_dlkm & system_dlkm, we need to filter what modules goes into system_dlkm
           #
-          # In mixed tree, we don't have the headache since all the modules built from gki-kernel goes into the
+          # In mixed tree, we don't have the headache since all the modules built from gki_kernel goes into the
           # system_dlkm partition.
 
           system_dlkm_modules_list=$(mktemp)
