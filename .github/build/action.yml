@@ -142,7 +142,7 @@ runs:
         # - BOOT_MKBOOTIMG_ARGS : Arguments for creating boot image, if left empty build assumes a v4 header
         #                         boot image that has no ramdisk
         # - AVB_SIGN_BOOT_CMDS : commands to be executed to sign the boot image
-        #                        boot.img is placed inside ${OUT} dir
+        #                        boot.img is placed inside ${DIST_DIR} dir
         #                        How to use: define a function to sign the boot image
         #                                    then set AVB_SIGN_BOOT_CMDS to that function name
         # - AVB_SIGN_BOOT_IMG : If set to 1, sign boot image (default) else skip
@@ -161,7 +161,7 @@ runs:
         #                                             to that function name
         # - VENDOR_BOOT_MKBOOTIMG_ARGS : Arguments for creating vendor boot image, if left empty build assumes generic v4 args
         # - AVB_SIGN_VENDOR_BOOT_CMDS : commands to be executed to sign the vendor_boot image
-        #                        vendor_boot.img is placed inside ${OUT} dir
+        #                        vendor_boot.img is placed inside ${DIST_DIR} dir
         #                        How to use: define a function to sign the vendor_boot image
         #                                    then set AVB_SIGN_VENDOR_BOOT_CMDS to that function name
         # - AVB_SIGN_VENDOR_BOOT_IMG : If set to 1, sign vendor_boot image (default) else skip
@@ -510,7 +510,7 @@ runs:
         # Exports for external kernel modules
         export BOARD_PLATFORM="${SOC}"
         export TARGET_BOARD_PLATFORM="${SOC}"
-        export KERNEL_BUILD=0
+        export KERNEL_BUILD=n
 
         MAKE_FLAGS+=(
           KERNEL_SRC="${ROOT_DIR}/${KERNEL_DIR}"
@@ -745,8 +745,8 @@ runs:
             "--os_version" "13.0.0"
             "--os_patch_level" "2099-12-01"
             "--pagesize" "4096"
-            "--kernel" "$IMAGE"
-            "--output" "$OUT/boot.img"
+            "--kernel" "${IMAGE}"
+            "--output" "${DIST_DIR}/boot.img"
           )
         fi
 
@@ -801,6 +801,7 @@ runs:
         PREBUILTS="${KERNEL_PATCHES}/device/${CODENAME}-${OS_SHORT}/system_dlkm"
         OUT="${OUT_DIR}/gki_kernel/modules_staging"
         UNAME=$(ls "${OUT}/lib/modules/")
+        MODULES_STAGING_ROOT="${OUT}/lib/modules/${UNAME}"
         SYSTEM_DLKM_STAGING_DIR="${OUT_DIR}/system_dlkm_staging"
         SYSTEM_DLKM_STAGING_ROOT="${SYSTEM_DLKM_STAGING_DIR}/lib/modules/${UNAME}"
         # Add for Monolithic Trees
@@ -828,14 +829,14 @@ runs:
           # system_dlkm partition.
 
           system_dlkm_modules_list=$(mktemp)
-          ( cd "${OUT}/lib/modules/${UNAME}" && find -type f -name "*.ko" -print > "${system_dlkm_modules_list}" )
+          ( cd "${MODULES_STAGING_ROOT}" && find -type f -name "*.ko" -print > "${system_dlkm_modules_list}" )
         else
           system_dlkm_modules_list="${PREBUILTS}/system_dlkm.modules.include"
         fi
 
         # copy modules to DEPMOD_DIR_ROOT
         # NOTE: do depmod from DEPMOD_DIR
-        cd "${OUT}/lib/modules/${UNAME}"
+        cd "${MODULES_STAGING_ROOT}"
         mkdir -p "${DEPMOD_DIR_ROOT}"
         missing_modules=$(mktemp)
         while IFS= read -r module || [[ -n "${module}" ]]; do
