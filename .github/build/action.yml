@@ -724,6 +724,8 @@ runs:
           set +a
         fi
 
+        set -x
+
         if [ -n "${PRE_BOOT_MKBOOTIMG_CMDS:-}" ]; then
           echo "::debug:: Evaluating PRE_BOOT_MKBOOTIMG_CMDS inside $(pwd)"
           set -x
@@ -790,6 +792,8 @@ runs:
           set +x
         fi
 
+        set +x
+
         echo "Boot image created ✅"
         echo "::endgroup::"
 
@@ -817,6 +821,8 @@ runs:
             . ${BUILD_CONFIG}
           set +a
         fi
+
+        set -x
 
         # Clean staging dir, since we cache the OUT_DIR
         mkdir -p ${SYSTEM_DLKM_STAGING_DIR}
@@ -963,6 +969,8 @@ runs:
             --partition_name system_dlkm \
             --image "${DIST_DIR}/system_dlkm.img"
 
+        set +x
+
         echo -e "::debug:: system_dlkm fc:"
         sudo mkdir -p /mnt/system_dlkm
         sudo mount -o loop,ro "${DIST_DIR}/system_dlkm.img" /mnt/system_dlkm
@@ -1004,6 +1012,8 @@ runs:
             . ${BUILD_CONFIG}
           set +a
         fi
+
+        set -x
 
         # Clean staging dir, since we cache the OUT_DIR
         mkdir -p ${VENDOR_BOOT_STAGING_DIR}
@@ -1187,6 +1197,8 @@ runs:
           set +x
         fi
 
+        set +x
+
         tar -czf "${DIST_DIR}/vendor_boot_archive.tar.gz" -C "${VENDOR_BOOT_STAGING_DIR}" .
 
     - name: Create vendor_dlkm
@@ -1218,6 +1230,8 @@ runs:
             . ${BUILD_CONFIG}
           set +a
         fi
+
+        set -x
 
         # Clean staging dir, since we cache the OUT_DIR
         mkdir -p ${VENDOR_DLKM_STAGING_DIR}
@@ -1401,6 +1415,8 @@ runs:
         echo "::note:: Building vendor_dlkm Image"
         set -x
         build_image "${VENDOR_DLKM_STAGING_DIR}" "${vendor_dlkm_props_file}" "${DIST_DIR}/vendor_dlkm.img" /dev/null
+        set +x
+
         set +x
 
         echo -e "::debug::vendor_dlkm fc:"
