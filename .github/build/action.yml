@@ -40,10 +40,20 @@ outputs:
 runs:
   using: composite
   steps:
-    - name: Reset dynamic cache hooks
+    - name: Find changes force recompilation of changed files
       shell: bash
       run: |
-        rm -rf "${KERNEL_PATCHES}/scripts" || true
+        "${MTIME_CACHE}" -u -d "${ROOT_DIR}/common" -k gki-kernel
+
+        [[ -d "${ANDROID_BUILD_TOP}/vendor" ]] && "${MTIME_CACHE}" -u -d "${ANDROID_BUILD_TOP}/vendor" -k vendor
+
+        [[ -d "${ROOT_DIR}/msm-kernel" ]] && "${MTIME_CACHE}" -u -d "${ROOT_DIR}/msm-kernel" -k msm-kernel
+
+        [[ -d "${ROOT_DIR}/Baseband-guard" ]] && "${MTIME_CACHE}" -u -d "${ROOT_DIR}/Baseband-guard" -k bbg
+
+        [[ -d "${susfs_dir:-}" ]] && "${MTIME_CACHE}" -u -d "${susfs_dir}" -k susfs
+
+        [[ -d "${ksun_dir:-}" ]] && "${MTIME_CACHE}" -u -d "${ksun_dir}" -k ksun 
 
     - name: Configure ccache
       shell: bash

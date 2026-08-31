@@ -90,7 +90,7 @@ runs:
           exit 1
         fi
 
-        ( "${MTIME_CACHE}" susfs )
+        ( "${MTIME_CACHE}" -t -d "$(pwd)" -k susfs )
 
         echo "susfs_dir=$(pwd)" >> "${GITHUB_ENV}"
 
@@ -156,7 +156,7 @@ runs:
         echo "KernelSU Next Version: ${KSU_VERSION}"
         echo "KernelSU Next added (commit: ${KSUN_COMMIT_SHA}) ✅"
 
-        ( cd "${ROOT_DIR}/KernelSU-Next" && "${MTIME_CACHE}" ksun )
+        ( "${MTIME_CACHE}" -t -d "${ROOT_DIR}/KernelSU-Next" -k ksun )
         echo "::endgroup::"
 
     - name: Apply SUSFS Patches
@@ -396,7 +396,7 @@ runs:
         ./scripts/config --file arch/arm64/configs/kernel.config -e CONFIG_BBG
         sed -i '/^config LSM$/,/^help$/{ /^[[:space:]]*default/ { /baseband_guard/! s/selinux/selinux,baseband_guard/ } }' security/Kconfig
 
-        ( cd ${ROOT_DIR}/Baseband-guard && "${MTIME_CACHE}" bbg)
+        ( "${MTIME_CACHE}" -t -d "${ROOT_DIR}/Baseband-guard" -k bbg )
 
         echo "BBG LSM added ✅"
         echo "::endgroup::"

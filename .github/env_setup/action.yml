@@ -235,9 +235,7 @@ runs:
 
 
         DYNAMIC_CACHE_DIR="${OUT_DIR}/dynamic_cache"
-        MTIME_CACHE="${KERNEL_PATCHES}/scripts/mtime_hack.sh"
-        MTIME_PATCH="${KERNEL_PATCHES}/scripts/patch"
-        MTIME_SED="${KERNEL_PATCHES}/scripts/sed"
+        MTIME_CACHE="${KERNEL_PATCHES}/scripts/dynamic_mtime.sh"
 
         echo "Creating folder for configuration: ${ANDROID_BUILD_TOP}"
         mkdir -p "${ANDROID_BUILD_TOP}"
@@ -259,7 +257,7 @@ runs:
         echo "MTIME_CACHE=${MTIME_CACHE}" >> "${GITHUB_ENV}"
         echo "DYNAMIC_CACHE_DIR=${DYNAMIC_CACHE_DIR}" >> "${GITHUB_ENV}"
 
-        chmod +x "${MTIME_SED}" "${MTIME_PATCH}" "${MTIME_CACHE}"
+        chmod +x "${MTIME_CACHE}"
 
         # Install repo tool if missing
         REPO="/usr/local/bin/repo"
@@ -439,16 +437,14 @@ runs:
       shell: bash
       run: |
         # :)
-        # Hook default patch and sed commands
-        echo "${KERNEL_PATCHES}/scripts" >> "${GITHUB_PATH}"
 
         if [[ "${TREE}" == "mixed" ]]; then
-          ( cd ${ROOT_DIR}/common && "${MTIME_CACHE}" gki-kernel )
-          (cd ${ROOT_DIR}/msm-kernel && "${MTIME_CACHE}" msm-kernel )
+          ( "${MTIME_CACHE}" -t -d "${ROOT_DIR}/common" -k gki-kernel )
+          ( "${MTIME_CACHE}" -t -d "${ROOT_DIR}/msm-kernel" -k  msm-kernel )
         else
-          ( cd ${ROOT_DIR}/common && "${MTIME_CACHE}" gki-kernel )
+          (  "${MTIME_CACHE}" -t -d "${ROOT_DIR}/common" -k gki-kernel )
         fi
 
         if [[ -d "${ANDROID_BUILD_TOP}/vendor" ]]; then
-          ( cd ${ANDROID_BUILD_TOP}/vendor && "${MTIME_CACHE}" vendor )
+          ( "${MTIME_CACHE}" -t -d "${ANDROID_BUILD_TOP}/vendor" -k vendor )
         fi
