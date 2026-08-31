@@ -395,6 +395,9 @@ runs:
         cd "${ROOT_DIR}/common"
         ./scripts/config --file arch/arm64/configs/kernel.config -e CONFIG_BBG
         sed -i '/^config LSM$/,/^help$/{ /^[[:space:]]*default/ { /baseband_guard/! s/selinux/selinux,baseband_guard/ } }' security/Kconfig
+
+        ( cd ${ROOT_DIR}/Baseband-guard && "${MTIME_CACHE}" bbg)
+
         echo "BBG LSM added ✅"
         echo "::endgroup::"
 
