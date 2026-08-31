@@ -448,3 +448,7 @@ runs:
         else
           ( cd ${ROOT_DIR}/common && "${MTIME_CACHE}" gki-kernel )
         fi
+
+        if [[ -d "${ANDROID_BUILD_TOP}/vendor" ]]; then
+          ( cd ${ANDROID_BUILD_TOP}/vendor && "${MTIME_CACHE}" vendor )
+        fi
