@@ -367,6 +367,7 @@ runs:
         export MSM_ARCH="${SOC}"
         export DTB_TYPES="${MSM_ARCH}-overlays-"
         OUT="${OUT_DIR}/gki-kernel"
+        MODULES_ARCHIVE=gki-modules.tar.gz
 
         _line
 
@@ -406,11 +407,11 @@ runs:
         _line
 
         MAKE_GOALS="modules_install"
-        INSTALL_MOD_PATH="${OUT_DIR}/gki-kernel/modules_staging"
+        MODULES_STAGING_DIR="${OUT_DIR}/gki-kernel/modules_staging"
 
         echo " Installing kernel modules to staging directory"
         set -x
-        ( cd "${OUT}" && make "${MAKE_FLAGS[@]}" O="${OUT}" INSTALL_MOD_STRIP=1 INSTALL_MOD_PATH="${INSTALL_MOD_PATH}" ${MAKE_GOALS} )
+        ( cd "${OUT}" && make "${MAKE_FLAGS[@]}" O="${OUT}" INSTALL_MOD_STRIP=1 INSTALL_MOD_PATH="${MODULES_STAGING_DIR}" ${MAKE_GOALS} )
         set +x
         _line
 
@@ -425,6 +426,7 @@ runs:
           modules.builtin.modinfo
         )
 
+        echo "Copying kernel artifacts to ${DIST_DIR}"
         for FILE in "${FILES[@]}"; do
           set -x
           if [[ -f "${OUT}/${FILE}" ]]; then
@@ -434,6 +436,8 @@ runs:
           fi
           set +x
         done
+
+        _line
 
         if [[ "${TREE}" == "monolithic" ]]; then
           INSTALL_DTBS_PATH="${OUT_DIR}/gki-kernel/dtb_staging"
@@ -445,6 +449,14 @@ runs:
           set +X
           _line
         else
+
+          # Create gki modules archive
+          ( 
+            MODULES=$(find ${MODULES_STAGING_DIR} -type f -name "*.ko")
+            echo " Archiving GKI modules to ${MODULES_ARCHIVE}"
+            tar --transform="s,.*/,," -czf ${DIST_DIR}/${MODULES_ARCHIVE} ${MODULES[@]}
+          )
+
           export KERNEL_DIR="msm-kernel"
           OUT="${OUT_DIR}/msm-kernel"
           MAKE_GOALS="modules dtbs"
@@ -480,11 +492,11 @@ runs:
           _line
 
           MAKE_GOALS="modules_install"
-          INSTALL_MOD_PATH="${OUT_DIR}/msm-kernel/modules_staging"
+          MODULES_STAGING_DIR="${OUT_DIR}/msm-kernel/modules_staging"
 
           echo " Installing kernel modules to staging directory"
           set -x
-          ( cd "${OUT}" && make "${MAKE_FLAGS[@]}" O="${OUT}" INSTALL_MOD_STRIP=1 INSTALL_MOD_PATH="${INSTALL_MOD_PATH}" ${MAKE_GOALS} )
+          ( cd "${OUT}" && make "${MAKE_FLAGS[@]}" O="${OUT}" INSTALL_MOD_STRIP=1 INSTALL_MOD_PATH="${MODULES_STAGING_DIR}" ${MAKE_GOALS} )
           set +x
           _line
 
@@ -497,6 +509,9 @@ runs:
           set +x
           _line
         fi
+
+        # Rename file name since modules to be archived from now on are either full set of modules (monolithic tress) or devive-kernel modules
+        MODULES_ARCHIVE=modules.tar.gz
 
         set -x
         echo " Copying dtbs and dtbos to DIST_DIR"
@@ -540,7 +555,7 @@ runs:
             mkdir -p ${OUT}/${EXT_MOD_REL}
 
             make -C "${EXT_MOD}" M="${EXT_MOD_REL}" "${MAKE_FLAGS[@]}" O=${OUT} "${OPLUS_FLAGS[@]}"
-            make -C "${EXT_MOD}" M="${EXT_MOD_REL}" "${MAKE_FLAGS[@]}" O=${OUT} "${OPLUS_FLAGS[@]}" INSTALL_MOD_STRIP=1 INSTALL_MOD_PATH=${INSTALL_MOD_PATH} INSTALL_MOD_DIR="extra/${EXT_MOD}" modules_install
+            make -C "${EXT_MOD}" M="${EXT_MOD_REL}" "${MAKE_FLAGS[@]}" O=${OUT} "${OPLUS_FLAGS[@]}" INSTALL_MOD_STRIP=1 INSTALL_MOD_PATH=${MODULES_STAGING_DIR} INSTALL_MOD_DIR="extra/${EXT_MOD}" modules_install
             set +x
           done
           _line
@@ -597,12 +612,20 @@ runs:
             mkdir -p ${OUT}/${EXT_MOD_REL}
 
             make -C "${EXT_MOD}" M="${EXT_MOD_REL}" "${MAKE_FLAGS[@]}" O=${OUT}
-            make -C "${EXT_MOD}" M="${EXT_MOD_REL}" "${MAKE_FLAGS[@]}" O=${OUT} INSTALL_MOD_STRIP=1 INSTALL_MOD_PATH="${INSTALL_MOD_PATH}" INSTALL_MOD_DIR="extra/${EXT_MOD}" modules_install
+            make -C "${EXT_MOD}" M="${EXT_MOD_REL}" "${MAKE_FLAGS[@]}" O=${OUT} INSTALL_MOD_STRIP=1 INSTALL_MOD_PATH="${MODULES_STAGING_DIR}" INSTALL_MOD_DIR="extra/${EXT_MOD}" modules_install
             set +x
         done
         _line
 
-        find "${INSTALL_MOD_PATH}" -name "${QCACLD_DEV_NAME}.ko" -execdir mv -i -- "{}" "qca_cld3_${QCACLD_DEV_NAME}.ko" \;
+        find "${MODULES_STAGING_DIR}" -name "${QCACLD_DEV_NAME}.ko" -execdir mv -i -- "{}" "qca_cld3_${QCACLD_DEV_NAME}.ko" \;
+
+        # Create modules archive
+        ( 
+          MODULES=$(find ${MODULES_STAGING_DIR} -type f -name "*.ko")
+          echo " Archiving GKI modules to ${MODULES_ARCHIVE}"
+          tar --transform="s,.*/,," -czf ${DIST_DIR}/${MODULES_ARCHIVE} ${MODULES[@]}
+        )
+
 
         if [[ "${SOC_VENDOR:-qcom}" == "qcom" ]]; then
           echo "Compiling vendor devicetree overlays"

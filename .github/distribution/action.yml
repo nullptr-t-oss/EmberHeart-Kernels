@@ -63,6 +63,8 @@ runs:
           ${{ env.DIST_DIR }}/${{ env.AK3_ZIP }}
           ${{ env.DIST_DIR }}/modules.zip
           ${{ env.DIST_DIR }}/boot.img
+          ${{ env.DIST_DIR }}/gki-modules.tar.gz
+          ${{ env.DIST_DIR }}/modules.tar.gz
           ${{ env.DIST_DIR }}/system_dlkm.img
           ${{ env.DIST_DIR }}/vendor_boot.img
           ${{ env.DIST_DIR }}/vendor_dlkm.img
