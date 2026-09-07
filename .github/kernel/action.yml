@@ -20,6 +20,9 @@ inputs:
     required: false
     type: string
     default: ""
+  github_token:
+    required: true
+    type: string
 
 outputs:
   kernel_version:
@@ -148,7 +151,9 @@ runs:
         cd ..
         echo "ksun_dir=$(pwd)" >> ${GITHUB_ENV}
         KSUN_COMMIT_SHA=$(git rev-parse --short HEAD)
+        KSUN_COMMIT_SHA_FULL=$(git rev-parse HEAD)
         echo "KSUN_COMMIT_SHA=${KSUN_COMMIT_SHA}" >> ${GITHUB_ENV}
+        echo "KSUN_COMMIT_SHA_FULL=${KSUN_COMMIT_SHA_FULL}" >> ${GITHUB_ENV}
 
         echo "KSUVER=${KSU_VERSION}" >> ${GITHUB_ENV}
         echo "ksun_version=${KSU_VERSION}" >> "${GITHUB_OUTPUT}"
@@ -158,6 +163,14 @@ runs:
 
         ( "${MTIME_CACHE}" -t -d "${ROOT_DIR}/KernelSU-Next" -k ksun )
         echo "::endgroup::"
+
+    - name: Download KSUN Manager
+      uses: nullptr-t-oss/composite_actions/fetch_ksu_manager@main
+      with:
+        ksu-type: ksun
+        dist-dir: ${DIST_DIR}
+        commit-hash: ${KSUN_COMMIT_SHA_FULL}
+        github-token: ${{ inputs.github_token }}
 
     - name: Apply SUSFS Patches
       id: add_susfs
