@@ -1484,7 +1484,7 @@ runs:
           duration="${{ steps.build.outputs.duration }}s"
         fi
 
-        echo "BUILD_TIME=${duration}" "${GITHUB_ENV}"
+        echo "BUILD_TIME=${duration}" >> "${GITHUB_ENV}"
         echo "duration=${duration}" >> "${GITHUB_OUTPUT}"
 
     - name: Push build Summary
