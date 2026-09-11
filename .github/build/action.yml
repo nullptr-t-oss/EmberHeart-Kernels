@@ -554,7 +554,7 @@ runs:
           echo " Compiling vendor modules (oplus)"
           for EXT_MOD in "${EXT_OPLUS[@]}"; do
             if [[ ! -d "${ROOT_DIR}/${EXT_MOD}" ]]; then
-              echo "WARNING: The following module path does not exist : ${MODULE}" >&2
+              echo "WARNING: The following module path does not exist : ${EXT_MOD}" >&2
               continue
             fi
             set -x
@@ -610,7 +610,7 @@ runs:
 
         for EXT_MOD in "${EXT_MODULES[@]}"; do
             if [[ ! -d "${ROOT_DIR}/${EXT_MOD}" ]]; then
-              echo "WARNING: The following module path does not exist : ${MODULE}" >&2
+              echo "WARNING: The following module path does not exist : ${EXT_MOD}" >&2
               continue
             fi
             set -x
@@ -724,7 +724,7 @@ runs:
         else
           echo "WARNING: dtb not found from prebuilts" >&2
           if [[ -d "${OUT}/dtb_staging" ]]; then
-            find "${OUT}/dtb_staging" -name "*.dtb" | sort | xargs mkdtimg create "${DIST}/dtb.img" --page_size=${DTB_PAGE_SIZE:-4096}
+            find "${OUT}/dtb_staging" -name "*.dtb" | sort | xargs mkdtimg create "${DIST_DIR}/dtb.img" --page_size=${DTB_PAGE_SIZE:-4096}
           else
             echo "WARNING: dtb_staging dir not found" >&2
           fi
@@ -740,6 +740,7 @@ runs:
       run: |
         set -euo pipefail
         echo "::group::Create boot image..."
+        PREBUILTS="${KERNEL_PATCHES}/device/${CODENAME}-${OS_SHORT}/boot"
         IMAGE="${DIST_DIR}/Image${{ steps.build_config.outputs.kernel_compression }}"
 
         if [[ -f "${ROOT_DIR}/tools/mkbootimg/mkbootimg.py" ]]; then
@@ -771,28 +772,77 @@ runs:
           set +x
         fi
 
-        # Allow build.config files to override generic v4 no ramdisk mkbootimg flags
-        if [[ ! -v BOOT_MKBOOTIMG_ARGS ]]; then
-          BOOT_MKBOOTIMG_ARGS=(
-            "--header_version" "4"
-            "--os_version" "13.0.0"
-            "--os_patch_level" "2099-12-01"
-            "--pagesize" "4096"
-            "--kernel" "${IMAGE}"
-            "--output" "${DIST_DIR}/boot.img"
-          )
+        BOOT_IMAGE_HEADER_VERSION=${BOOT_IMAGE_HEADER_VERSION:-4}
+        MKBOOTIMG_ARGS=("--header_version" "${BOOT_IMAGE_HEADER_VERSION}")
+
+        if [[ -n "${BOOT_BASE_ADDRESS:-}" ]]; then
+          MKBOOTIMG_ARGS+=("--base" "${BOOT_BASE_ADDRESS}")
+        fi
+        if [[ -n "${BOOT_PAGE_SIZE:-4096}" ]]; then
+          MKBOOTIMG_ARGS+=("--pagesize" "${BOOT_PAGE_SIZE:-4096}")
+        fi
+        if [[ -n "${BOOT_KERNEL_CMDLINE:-}" ]]; then
+          MKBOOTIMG_ARGS+=("--cmdline" "${BOOT_KERNEL_CMDLINE}")
+        fi
+        if [[ -n "${BOOT_TAGS_OFFSET:-}" ]]; then
+          MKBOOTIMG_ARGS+=("--tags_offset" "${BOOT_TAGS_OFFSET}")
+        fi
+        if [[ -n "${BOOT_RAMDISK_OFFSET:-}" ]]; then
+          MKBOOTIMG_ARGS+=("--ramdisk_offset" "${BOOT_RAMDISK_OFFSET}")
+        fi
+        if [[ -n "${BOOT_OS_VERSION:-13.0.0}" ]]; then
+          MKBOOTIMG_ARGS+=("--os_version" "${BOOT_OS_VERSION:-13.0.0}")
+        fi
+        if [[ -n "${BOOT_OS_PATCH_LEVEL:-2099-12-01}" ]]; then
+          MKBOOTIMG_ARGS+=("--os_patch_level" "${BOOT_OS_PATCH_LEVEL:-2099-12-01}")
         fi
 
-        echo "Creating boot image"
-        set -x
-        "$MKBOOTIMG" "${BOOT_MKBOOTIMG_ARGS[@]}"
-        set +x
-        
+        # give priority to prebuilt dtb if present else use dist dtb if BOOT_DIST_DTB is set to any value
+        if [[ -f "${PREBUILTS}/dtb.img" ]]; then
+          MKBOOTIMG_ARGS+=("--dtb" "${PREBUILTS}/dtb.img")
+        elif [[ "${BOOT_DIST_DTB:-0}" == "1" ]]; then
+          MKBOOTIMG_ARGS+=("--dtb" "${DIST_DIR}/dtb.img")
+        fi
+
+        MKBOOTIMG_ARGS+=("--kernel" "${IMAGE}")
+        MKBOOTIMG_ARGS+=("--output" "${DIST_DIR}/boot.img")
+
+        # Allow build.config files to override generic v4 no ramdisk mkbootimg flags
+        if [[ -v BOOT_MKBOOTIMG_ARGS ]]; then
+          echo "Creating boot image using custom mkbootimg args"
+          set -x
+          "${MKBOOTIMG}" "${BOOT_MKBOOTIMG_ARGS[@]}"
+          set +x
+        else
+          echo "Creating boot image"
+          set -x
+          "${MKBOOTIMG}" "${MKBOOTIMG_ARGS[@]}"
+          set +x
+        fi
+
         if [ -n "${POST_BOOT_MKBOOTIMG_CMDS:-}" ]; then
           echo "::debug:: Evaluating POST_BOOT_MKBOOTIMG_CMDS inside $(pwd)"
           set -x
           eval "${POST_BOOT_MKBOOTIMG_CMDS}"
           set +x
+        fi
+
+        # boot image created now sign the image and add the hash tree footer
+        AVBTOOL_ARGS=()
+        AVBTOOL_ARGS+=("--partition_name" "boot")
+        AVBTOOL_ARGS+=("--partition_size" "${BOOT_PARTITION_SIZE}")
+        AVBTOOL_ARGS+=("--image" "${DIST_DIR}/boot.img")
+
+        if [[ -n "${BOOT_FEC_NUM_ROOTS:-}" ]] && command -v fec >/dev/null 2>&1; then
+          AVBTOOL_ARGS+=("--fec_num_roots" "${BOOT_FEC_NUM_ROOTS}")
+        else
+          AVBTOOL_ARGS+=("--do_not_generate_fec")
+        fi
+
+        if [[ -n "${BOOT_AVBTOOL_PROPS:-}" ]]; then
+          for prop in ${BOOT_AVBTOOL_PROPS}; do
+            AVBTOOL_ARGS+=("--prop" "${prop}")
+          done
         fi
 
         # Allow build.config to sign boot images using custom algo and keys
@@ -814,12 +864,11 @@ runs:
           AVB_SIGN_BOOT_ALGO=${AVB_SIGN_BOOT_ALGO:-SHA256_RSA4096}
           AVB_SIGN_BOOT_KEY=${AVB_SIGN_BOOT_KEY:-${KERNEL_PLATFORM}/tools/mkbootimg/gki/testdata/testkey_rsa4096.pem}
 
-          avbtool add_hash_footer \
-            --partition_name boot \
-            --partition_size "${BOOT_PARTITION_SIZE}" \
-            --image "${DIST_DIR}/boot.img" \
-            --algorithm "${AVB_SIGN_BOOT_ALGO}" \
-            --key "${AVB_SIGN_BOOT_KEY}"
+          AVBTOOL_ARGS+=("--algorithm" "${AVB_SIGN_BOOT_ALGO}")
+          AVBTOOL_ARGS+=("--key" "${AVB_SIGN_BOOT_KEY}")
+
+          avbtool add_hash_footer  "${AVBTOOL_ARGS[@]}"
+            
           set +x
         fi
 
@@ -870,7 +919,7 @@ runs:
           # system_dlkm partition.
 
           system_dlkm_modules_list=$(mktemp)
-          ( cd "${MODULES_STAGING_ROOT}" && find -type f -name "*.ko" -print > "${system_dlkm_modules_list}" )
+          ( cd "${MODULES_STAGING_ROOT}" && find -type f -name "*.ko" -printf '%P\n' > "${system_dlkm_modules_list}" )
         else
           system_dlkm_modules_list="${PREBUILTS}/system_dlkm.modules.include"
         fi
@@ -909,12 +958,12 @@ runs:
         stripped_modules_order="$(mktemp)"
         grep -F -f "${system_dlkm_modules_list}" \
           ${modules_order} > "${stripped_modules_order}" || true
-        mv -f ${stripped_modules_order} ${modules_order}
+        cat ${stripped_modules_order} > ${system_dlkm_modules_order}
 
         if [[ -f "${PREBUILTS}/system_dlkm.modules.load" ]]; then
-          cp "${PREBUILTS}/system_dlkm.modules.load" "${system_dlkm_modules_load}"
+          cat "${PREBUILTS}/system_dlkm.modules.load" > "${system_dlkm_modules_load}"
         else
-          cp "${system_dlkm_modules_order}" "${system_dlkm_modules_load}"
+          cat "${system_dlkm_modules_order}" > "${system_dlkm_modules_load}"
         fi
         cp "${system_dlkm_modules_load}" "${DIST_DIR}/system_dlkm.modules.load"
 
@@ -923,8 +972,10 @@ runs:
         if [[ ! -v SYSTEM_DLKM_EXTRA_FILES ]]; then
           mkdir -p "${SYSTEM_DLKM_STAGING_DIR}/etc"
           if [[ -d "${PREBUILTS}/etc" ]]; then
+            shopt -s nullglob
             cp "${PREBUILTS}/etc"/* "${SYSTEM_DLKM_STAGING_DIR}/etc/" || true
             touch "${SYSTEM_DLKM_STAGING_DIR}/etc/fs_config_dirs" "${SYSTEM_DLKM_STAGING_DIR}/etc/fs_config_files"
+            shopt -u nullglob
           fi
         else
           echo "::debug:: Evaluating SYSTEM_DLKM_EXTRA_FILES inside $(pwd)"
@@ -995,10 +1046,31 @@ runs:
         build_image "${SYSTEM_DLKM_STAGING_DIR}" "${system_dlkm_props_file}" "${DIST_DIR}/system_dlkm.img" /dev/null
         set +x
 
-        echo "::notice::Adding hashtree footer using avbtool"
-        avbtool add_hashtree_footer \
-            --partition_name system_dlkm \
-            --image "${DIST_DIR}/system_dlkm.img"
+        # system_dlkm image created now sign the image and add the hash tree footer
+        AVBTOOL_ARGS=()
+
+        AVBTOOL_ARGS+=("--partition_name" "system_dlkm")
+        AVBTOOL_ARGS+=("--image" "${DIST_DIR}/system_dlkm.img")
+
+        AVB_SIGN_SYSTEM_DLKM_ALGO=${AVB_SIGN_SYSTEM_DLKM_ALGO:-sha256}
+        AVBTOOL_ARGS+=("--hash_algorithm" "${AVB_SIGN_SYSTEM_DLKM_ALGO}")
+
+        if [[ -n "${SYSTEM_DLKM_FEC_NUM_ROOTS:-}" ]] && command -v fec >/dev/null 2>&1; then
+          AVBTOOL_ARGS+=("--fec_num_roots" "${SYSTEM_DLKM_FEC_NUM_ROOTS}")
+        else
+          AVBTOOL_ARGS+=("--do_not_generate_fec")
+        fi
+
+        if [[ -n "${SYSTEM_DLKM_AVBTOOL_PROPS:-}" ]]; then
+          for prop in ${SYSTEM_DLKM_AVBTOOL_PROPS}; do
+            AVBTOOL_ARGS+=("--prop" "${prop}")
+          done
+        fi
+
+        echo "::notice:: Adding hashtree footer using avbtool"
+        set -x
+        avbtool add_hashtree_footer "${AVBTOOL_ARGS[@]}"
+        set +x
 
         set +x
 
@@ -1121,7 +1193,7 @@ runs:
 
         if [[ -d "${PREBUILTS}/ramdisk" ]]; then
           shopt -s nullglob
-          cp "${PREBUILTS}/ramdisk"/* "${RAMDISK_STAGING_DIR}/"
+          cp --parents "${PREBUILTS}/ramdisk"/* "${RAMDISK_STAGING_DIR}/"
           shopt -u nullglob
         fi
 
@@ -1142,34 +1214,67 @@ runs:
         fi
         ${RAMDISK_COMPRESS} "${MKBOOTIMG_RAMDISK_CPIO}" > "${DIST_DIR}/ramdisk.${RAMDISK_EXT}"
 
-        # Allow build.config files to override generic v4 mkbootimg flags
-        if [[ ! -v VENDOR_BOOT_MKBOOTIMG_ARGS ]]; then
-          VENDOR_BOOT_MKBOOTIMG_ARGS=(
-            "--header_version" "4"
-            "--pagesize" "4096"
-            "--vendor_boot" "${DIST_DIR}/vendor_boot.img"
-            "--vendor_ramdisk" "${DIST_DIR}/ramdisk.${RAMDISK_EXT}"
-          )
+        VENDOR_BOOT_IMAGE_HEADER_VERSION=${VENDOR_BOOT_IMAGE_HEADER_VERSION:-4}
+        MKBOOTIMG_ARGS=("--header_version" "${VENDOR_BOOT_IMAGE_HEADER_VERSION}")
+
+        if [[ -n "${VENDOR_BOOT_BASE_ADDRESS:-}" ]]; then
+          MKBOOTIMG_ARGS+=("--base" "${VENDOR_BOOT_BASE_ADDRESS}")
+        fi
+        if [[ -n "${VENDOR_BOOT_PAGE_SIZE:-4096}" ]]; then
+          MKBOOTIMG_ARGS+=("--pagesize" "${VENDOR_BOOT_PAGE_SIZE:-4096}")
+        fi
+        if [[ -n "${VENDOR_BOOT_KERNEL_CMDLINE:-}" ]]; then
+          MKBOOTIMG_ARGS+=("--cmdline" "${VENDOR_BOOT_KERNEL_CMDLINE}")
+        fi
+        if [[ -n "${VENDOR_BOOT_TAGS_OFFSET:-}" ]]; then
+          MKBOOTIMG_ARGS+=("--tags_offset" "${VENDOR_BOOT_TAGS_OFFSET}")
+        fi
+        if [[ -n "${VENDOR_BOOT_RAMDISK_OFFSET:-}" ]]; then
+          MKBOOTIMG_ARGS+=("--ramdisk_offset" "${VENDOR_BOOT_RAMDISK_OFFSET}")
+        fi
+        if [[ -n "${VENDOR_BOOT_OS_VERSION:-}" ]]; then
+          MKBOOTIMG_ARGS+=("--os_version" "${VENDOR_BOOT_OS_VERSION}")
+        fi
+        if [[ -n "${VENDOR_BOOT_OS_PATCH_LEVEL:-}" ]]; then
+          MKBOOTIMG_ARGS+=("--os_patch_level" "${VENDOR_BOOT_OS_PATCH_LEVEL}")
+        fi
+        if [[ -f "${DIST_DIR}/ramdisk.${RAMDISK_EXT}" ]]; then
+          MKBOOTIMG_ARGS+=("--vendor_ramdisk" "${DIST_DIR}/ramdisk.${RAMDISK_EXT}")
         fi
 
-        if [[ ! -v VENDOR_BOOT_MKBOOTIMG_ARGS && -f "${DIST_DIR}/dtb.img" ]]; then
-          VENDOR_BOOT_MKBOOTIMG_ARGS+=( "--dtb" "${DIST_DIR}/dtb.img" )
+        # todo: add suppport for vendor ramdisk fragments
+
+        # give priority to prebuilt dtb if present else use dist dtb if BOOT_DIST_DTB is set to any value
+        if [[ -f "${PREBUILTS}/dtb.img" ]]; then
+          MKBOOTIMG_ARGS+=("--dtb" "${PREBUILTS}/dtb.img")
+        elif [[ "${VENDOR_BOOT_DIST_DTB:-1}" == "1" ]]; then
+          MKBOOTIMG_ARGS+=("--dtb" "${DIST_DIR}/dtb.img")
         fi
 
         if [[ -f "${PREBUILTS}/bootconfig" ]]; then
           cat "${PREBUILTS}/bootconfig" > "${DIST_DIR}/vendor-bootconfig.img"
-          VENDOR_BOOT_MKBOOTIMG_ARGS+=( "--vendor_bootconfig" "${DIST_DIR}/vendor-bootconfig.img" )
+          MKBOOTIMG_ARGS+=("--vendor_bootconfig" "${DIST_DIR}/vendor-bootconfig.img")
+        elif [[ -n "${VENDOR_BOOTCONFIG:-}" ]]; then
+          for PARAM in ${VENDOR_BOOTCONFIG}; do
+            echo "${PARAM}"
+          done >"${DIST_DIR}/vendor-bootconfig.img"
+          MKBOOTIMG_ARGS+=("--vendor_bootconfig" "${DIST_DIR}/vendor-bootconfig.img")
+          KERNEL_VENDOR_CMDLINE+=" bootconfig"
         else
-          echo "WARNING:bootconfig is missing !" >&2
+          echo "WARNING: bootconfig is missing !" >&2
         fi
 
         # Note : prebuilt vendor cmdline already contains bootconfig , so no need to append it!
         if [[ -f "${PREBUILTS}/cmdline.txt" ]]; then
-          VENDOR_CMDLINE=$(cat "${PREBUILTS}/cmdline.txt")
-          VENDOR_BOOT_MKBOOTIMG_ARGS+=( "--vendor_cmdline" "${VENDOR_CMDLINE}" )
+          KERNEL_VENDOR_CMDLINE=$(cat "${PREBUILTS}/cmdline.txt")
+          MKBOOTIMG_ARGS+=("--vendor_cmdline" "${KERNEL_VENDOR_CMDLINE}")
+        elif [ -n "${KERNEL_VENDOR_CMDLINE:-}" ]; then
+        MKBOOTIMG_ARGS+=("--vendor_cmdline" "${KERNEL_VENDOR_CMDLINE}")
         else
           echo "WARNING: cmdline is missing !" >&2
         fi
+
+        MKBOOTIMG_ARGS+=("--vendor_boot" "${DIST_DIR}/vendor_boot.img")
        
         if [ -n "${PRE_VENDOR_BOOT_MKBOOTIMG_CMDS:-}" ]; then
           echo -e "::debug:: Evaluating PRE_VENDOR_BOOT_MKBOOTIMG_CMDS inside $(pwd)"
@@ -1186,18 +1291,42 @@ runs:
           set +x
         fi
 
-        echo -e "::debug:: vendor_boot staging tree :\n$(tree "${VENDOR_BOOT_STAGING_DIR}")" | tee "${DIST_DIR}/vendor_boot.tree"
-
-        echo "::note:: Creating vendor boot image"
-        set -x
-        "${MKBOOTIMG}" "${VENDOR_BOOT_MKBOOTIMG_ARGS[@]}"
-        set +x
+        # Allow build.config files to override generic v4 no ramdisk mkbootimg flags
+        if [[ -v VENDOR_BOOT_MKBOOTIMG_ARGS ]]; then
+          echo "Creating vendor_boot image using custom mkbootimg args"
+          set -x
+          "${MKBOOTIMG}" "${VENDOR_BOOT_MKBOOTIMG_ARGS[@]}"
+          set +x
+        else
+          echo "Creating vendor_boot image"
+          set -x
+          "${MKBOOTIMG}" "${MKBOOTIMG_ARGS[@]}"
+          set +x
+        fi
 
         if [ -n "${POST_VENDOR_BOOT_MKBOOTIMG_CMDS:-}" ]; then
           echo -e "::debug:: Evaluating POST_VENDOR_BOOT_MKBOOTIMG_CMDS inside $(pwd)"
           set -x
           eval "${POST_VENDOR_BOOT_MKBOOTIMG_CMDS}"
           set +x
+        fi
+
+        # vendor_boot image created now sign the image and add the hash tree footer
+        AVBTOOL_ARGS=()
+        AVBTOOL_ARGS+=("--partition_name" "vendor_boot")
+        AVBTOOL_ARGS+=("--partition_size" "${VENDOR_BOOT_PARTITION_SIZE}")
+        AVBTOOL_ARGS+=("--image" "${DIST_DIR}/vendor_boot.img")
+
+        if [[ -n "${VENDOR_BOOT_FEC_NUM_ROOTS:-}" ]] && command -v fec >/dev/null 2>&1; then
+          AVBTOOL_ARGS+=("--fec_num_roots" "${VENDOR_BOOT_FEC_NUM_ROOTS}")
+        else
+          AVBTOOL_ARGS+=("--do_not_generate_fec")
+        fi
+
+        if [[ -n "${VENDOR_BOOT_AVBTOOL_PROPS:-}" ]]; then
+          for prop in ${VENDOR_BOOT_AVBTOOL_PROPS}; do
+            AVBTOOL_ARGS+=("--prop" "${prop}")
+          done
         fi
 
         # Allow build.config to sign vendor_boot images using custom algo and keys
@@ -1219,17 +1348,16 @@ runs:
           AVB_SIGN_VENDOR_BOOT_ALGO=${AVB_SIGN_VENDOR_BOOT_ALGO:-SHA256_RSA4096}
           AVB_SIGN_VENDOR_BOOT_KEY=${AVB_SIGN_VENDOR_BOOT_KEY:-${ROOT_DIR}/tools/mkbootimg/gki/testdata/testkey_rsa4096.pem}
 
-          avbtool add_hash_footer \
-            --partition_name vendor_boot \
-            --partition_size "${VENDOR_BOOT_PARTITION_SIZE}" \
-            --image "${DIST_DIR}/vendor_boot.img" \
-            --algorithm "${AVB_SIGN_VENDOR_BOOT_ALGO}" \
-            --key "${AVB_SIGN_VENDOR_BOOT_KEY}"
+          AVBTOOL_ARGS+=("--algorithm" "${AVB_SIGN_VENDOR_BOOT_ALGO}")
+          AVBTOOL_ARGS+=("--key" "${AVB_SIGN_VENDOR_BOOT_KEY}")
+
+          avbtool add_hash_footer "${AVBTOOL_ARGS[@]}"
           set +x
         fi
 
         set +x
 
+        echo -e "::debug:: vendor_boot staging tree :\n$(tree "${VENDOR_BOOT_STAGING_DIR}")" | tee "${DIST_DIR}/vendor_boot.tree"
         tar -czf "${DIST_DIR}/vendor_boot_archive.tar.gz" -C "${VENDOR_BOOT_STAGING_DIR}" .
 
     - name: Create vendor_dlkm
@@ -1289,6 +1417,12 @@ runs:
           exit 1
         fi
 
+        if [[ ! -f "${vendor_dlkm_modules_load}" ]]; then
+          cat "${vendor_dlkm_modules_list}" > "${vendor_dlkm_modules_load}"
+          # optinal since vendor dlkm module list is expected to be flattened
+          sed -i 's/.*\///g' "${vendor_dlkm_modules_load}"
+        fi
+
         if [[ -f "${PREBUILTS}/system_dlkm.modules.blocklist" ]]; then
           cp "${PREBUILTS}/system_dlkm.modules.blocklist" "${VENDOR_DLKM_STAGING_ROOT}"
         fi
@@ -1324,14 +1458,19 @@ runs:
         # conflicts
         if [[ -f "${DIST_DIR}/vendor_boot.modules.load" && "${VENDOR_DLKM_STRIP_MODULES_LOAD:-0}" == "1" ]]; then
           stripped_modules_load="$(mktemp)"
-          grep -v -F -f ${DIST_DIR}/vendor_boot.modules.load \
+          grep -v -F -x -f ${DIST_DIR}/vendor_boot.modules.load \
             ${vendor_dlkm_modules_load} > ${stripped_modules_load} || true
           mv -f ${stripped_modules_load} ${vendor_dlkm_modules_load}
         fi
 
         if [[ -f "${DIST_DIR}/system_dlkm.modules.load" && "${VENDOR_DLKM_STRIP_MODULES_LOAD:-0}" == "1" ]]; then
           stripped_modules_load="$(mktemp)"
-          grep -v -F -f ${DIST_DIR}/system_dlkm.modules.load \
+          flattened_system_dlkm_modules_load="$(mktemp)"
+
+          sed 's#.*/##' \
+            "${DIST_DIR}/system_dlkm.modules.load" \
+            > "${flattened_system_dlkm_modules_load}"
+          grep -v -F -x -f ${flattened_system_dlkm_modules_load} \
             ${vendor_dlkm_modules_load} > ${stripped_modules_load} || true
           mv -f ${stripped_modules_load} ${vendor_dlkm_modules_load}
         fi
@@ -1343,14 +1482,16 @@ runs:
         cat "${MODULES_STAGING_ROOT}/modules.order" >> "${modules_order}"
         # Append modules.order in the sequence we compiled them
         for EXT_MOD in ${EXT_MODULES}; do
-          find "${MODULES_STAGING_ROOT}/extra/${EXT_MOD}" -type f -name 'modules.order.*' -exec cat {} >> "${modules_order}" \;
+          [[ -d "${MODULES_STAGING_ROOT}/extra/${EXT_MOD}" ]] && \
+            find "${MODULES_STAGING_ROOT}/extra/${EXT_MOD}" -type f -name 'modules.order.*' -exec cat {} >> "${modules_order}" \;
         done
 
+        sed -i 's/.*\///g' "${modules_order}"
+
         stripped_modules_order="$(mktemp)"
-        grep -F -f "${vendor_dlkm_modules_list}" \
+        grep -F -x -f "${vendor_dlkm_modules_list}" \
           ${modules_order} > "${stripped_modules_order}" || true
         mv -f ${stripped_modules_order} ${modules_order}
-        sed -i 's/.*\///g' "${modules_order}"
 
         if [[ "${VENDOR_DLKM_HAS_MODULES_ORDER:-0}" == "1" ]]; then
           cat "${modules_order}" > "${vendor_dlkm_modules_order}"
@@ -1373,8 +1514,10 @@ runs:
         if [[ ! -v VENDOR_DLKM_EXTRA_FILES ]]; then
           mkdir -p "${VENDOR_DLKM_STAGING_DIR}/etc"
           if [[ -d "${PREBUILTS}/etc" ]]; then
-            cp "${PREBUILTS}/etc"/* "${VENDOR_DLKM_STAGING_DIR}/etc/"
+            shopt -s nullglob
+            cp "${PREBUILTS}/etc"/* "${VENDOR_DLKM_STAGING_DIR}/etc/" || true
             touch "${VENDOR_DLKM_STAGING_DIR}/etc/fs_config_dirs" "${VENDOR_DLKM_STAGING_DIR}/etc/fs_config_files"
+            shopt -u nullglob
           fi
         else
           echo -e "::debug::Evaluating VENDOR_DLKM_EXTRA_FILES inside $(pwd)"
@@ -1440,12 +1583,37 @@ runs:
           set +x
         fi
 
-        echo -e "::debug:: vendor_dlkm staging tree :\n$(tree "${VENDOR_DLKM_STAGING_DIR}")" | tee "${DIST_DIR}/vendor_dlkm.tree"
         echo -e "::debug:: Final vendor_dlkm props file contents :\n$(cat "${vendor_dlkm_props_file}")" | tee "${DIST_DIR}/vendor_dlkm.prop"
 
         echo "::note:: Building vendor_dlkm Image"
         set -x
         build_image "${VENDOR_DLKM_STAGING_DIR}" "${vendor_dlkm_props_file}" "${DIST_DIR}/vendor_dlkm.img" /dev/null
+        set +x
+
+        # vendor_dlkm image created now add the hash tree footer
+        AVBTOOL_ARGS=()
+
+        AVBTOOL_ARGS+=("--partition_name" "vendor_dlkm")
+        AVBTOOL_ARGS+=("--image" "${DIST_DIR}/vendor_dlkm.img")
+
+        AVB_SIGN_VENDOR_DLKM_ALGO=${AVB_SIGN_VENDOR_DLKM_ALGO:-sha256}
+        AVBTOOL_ARGS+=("--hash_algorithm" "${AVB_SIGN_VENDOR_DLKM_ALGO}")
+
+        if [[ -n "${VENDOR_DLKM_FEC_NUM_ROOTS:-}" ]] && command -v fec >/dev/null 2>&1; then
+          AVBTOOL_ARGS+=("--fec_num_roots" "${VENDOR_DLKM_FEC_NUM_ROOTS}")
+        else
+          AVBTOOL_ARGS+=("--do_not_generate_fec")
+        fi
+
+        if [[ -n "${VENDOR_DLKM_AVBTOOL_PROPS:-}" ]]; then
+          for prop in ${VENDOR_DLKM_AVBTOOL_PROPS}; do
+            AVBTOOL_ARGS+=("--prop" "${prop}")
+          done
+        fi
+
+        echo "::notice:: Adding hashtree footer using avbtool"
+        set -x
+        avbtool add_hashtree_footer "${AVBTOOL_ARGS[@]}"
         set +x
 
         set +x
@@ -1455,6 +1623,7 @@ runs:
         sudo mount -o loop,ro "${DIST_DIR}/vendor_dlkm.img" /mnt/vendor_dlkm
         sudo getfattr -R -h -n security.selinux -m security.selinux "/mnt/vendor_dlkm" | tee "${DIST_DIR}/vendor_dlkm.fc" || true
 
+        echo -e "::debug:: vendor_dlkm staging tree :\n$(tree "${VENDOR_DLKM_STAGING_DIR}")" | tee "${DIST_DIR}/vendor_dlkm.tree"
         tar -czf "${DIST_DIR}/vendor_dlkm_archive.tar.gz" -C "${VENDOR_DLKM_STAGING_DIR}" .
 
     - name: Hash distribution artifacts
@@ -1466,7 +1635,7 @@ runs:
         echo "kernel_sha256=$(sha256sum "${DIST_DIR}/Image${{ steps.build_config.outputs.kernel_compression }}" | cut -d' ' -f1)" >> "${GITHUB_OUTPUT}"
         echo "boot_sha256=$(sha256sum "${DIST_DIR}/boot.img" | cut -d' ' -f1)" >> "${GITHUB_OUTPUT}"
 
-        if [[ "${{ inputs.compile_dlkm }}" ]]; then
+        if [[ "${{ inputs.compile_dlkm }}" == "true" ]]; then
           echo "system_dlkm_sha256=$(sha256sum "${DIST_DIR}/system_dlkm.img" | cut -d' ' -f1)" >> "${GITHUB_OUTPUT}"
           echo "vendor_dlkm_sha256=$(sha256sum "${DIST_DIR}/vendor_dlkm.img" | cut -d' ' -f1)" >> "${GITHUB_OUTPUT}"
           echo "vendor_boot_sha256=$(sha256sum "${DIST_DIR}/vendor_boot.img" | cut -d' ' -f1)" >> "${GITHUB_OUTPUT}"
