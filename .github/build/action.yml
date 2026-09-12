@@ -1103,7 +1103,7 @@ runs:
         fi
 
         if [[ "${TREE}" == "mixed" ]]; then
-          OUT="${OUT_DIR}/msm_kernel/modules_staging"
+          OUT="${OUT_DIR}/msm-kernel/modules_staging"
         else
           OUT="${OUT_DIR}/gki-kernel/modules_staging"
         fi
@@ -1378,7 +1378,7 @@ runs:
       run: |
         PREBUILTS="${KERNEL_PATCHES}/device/${CODENAME}-${OS_SHORT}/vendor_dlkm"
         if [[ "${TREE}" == "mixed" ]]; then
-          OUT="${OUT_DIR}/msm_kernel/modules_staging"
+          OUT="${OUT_DIR}/msm-kernel/modules_staging"
         else
           OUT="${OUT_DIR}/gki-kernel/modules_staging"
         fi
