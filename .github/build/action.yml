@@ -836,7 +836,14 @@ runs:
         if [[ -n "${BOOT_FEC_NUM_ROOTS:-}" ]] && command -v fec >/dev/null 2>&1; then
           AVBTOOL_ARGS+=("--fec_num_roots" "${BOOT_FEC_NUM_ROOTS}")
         else
-          AVBTOOL_ARGS+=("--do_not_generate_fec")
+          # newer avbtool binaries generates fec by default so --do_not_generate_fec was added to override this behaviour
+          # check : https://android.googlesource.com/platform/external/avb/+/0c25b526ed212893620b93852ddef9da9b399d6d/avbtool.py#4917
+          # to avoid breaking compat with older prebuilt binaries, AVBTOOL_GENERATES_FEC_BY_DEFAULT flag is provided
+          # if you see error like this :  avbtool: error: unrecognized arguments: --do_not_generate_fec ; then you're likely
+          # using an older prebuilt binary, either update it or set AVBTOOL_GENERATES_FEC_BY_DEFAULT to 0
+          if [[ "${AVBTOOL_GENERATES_FEC_BY_DEFAULT:-1}" == "1" ]]; then
+            AVBTOOL_ARGS+=("--do_not_generate_fec")
+          fi
         fi
 
         if [[ -n "${BOOT_AVBTOOL_PROPS:-}" ]]; then
@@ -1058,7 +1065,9 @@ runs:
         if [[ -n "${SYSTEM_DLKM_FEC_NUM_ROOTS:-}" ]] && command -v fec >/dev/null 2>&1; then
           AVBTOOL_ARGS+=("--fec_num_roots" "${SYSTEM_DLKM_FEC_NUM_ROOTS}")
         else
-          AVBTOOL_ARGS+=("--do_not_generate_fec")
+          if [[ "${AVBTOOL_GENERATES_FEC_BY_DEFAULT:-1}" == "1" ]]; then
+            AVBTOOL_ARGS+=("--do_not_generate_fec")
+          fi
         fi
 
         if [[ -n "${SYSTEM_DLKM_AVBTOOL_PROPS:-}" ]]; then
@@ -1320,7 +1329,9 @@ runs:
         if [[ -n "${VENDOR_BOOT_FEC_NUM_ROOTS:-}" ]] && command -v fec >/dev/null 2>&1; then
           AVBTOOL_ARGS+=("--fec_num_roots" "${VENDOR_BOOT_FEC_NUM_ROOTS}")
         else
-          AVBTOOL_ARGS+=("--do_not_generate_fec")
+          if [[ "${AVBTOOL_GENERATES_FEC_BY_DEFAULT:-1}" == "1" ]]; then
+            AVBTOOL_ARGS+=("--do_not_generate_fec")
+          fi
         fi
 
         if [[ -n "${VENDOR_BOOT_AVBTOOL_PROPS:-}" ]]; then
@@ -1602,7 +1613,9 @@ runs:
         if [[ -n "${VENDOR_DLKM_FEC_NUM_ROOTS:-}" ]] && command -v fec >/dev/null 2>&1; then
           AVBTOOL_ARGS+=("--fec_num_roots" "${VENDOR_DLKM_FEC_NUM_ROOTS}")
         else
-          AVBTOOL_ARGS+=("--do_not_generate_fec")
+          if [[ "${AVBTOOL_GENERATES_FEC_BY_DEFAULT:-1}" == "1" ]]; then
+            AVBTOOL_ARGS+=("--do_not_generate_fec")
+          fi
         fi
 
         if [[ -n "${VENDOR_DLKM_AVBTOOL_PROPS:-}" ]]; then
