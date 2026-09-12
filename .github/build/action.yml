@@ -1399,6 +1399,9 @@ runs:
         DEPMOD_DIR="${VENDOR_DLKM_STAGING_DIR}"
         # After depmod delete this dir since vendor_dlkm is flattened
         DEPMOD_DIR_ROOT="${VENDOR_DLKM_STAGING_DIR}/lib/modules/${UNAME}"
+        # copy modules here, this is done to trick depmod into mapping foo.ko as vendor/lib/modules/foo.ko (which is expected by android)
+        # note: still this trick does not produce absolute path in modules.dep, so use sed to replace 'vendor/lib/modules' to '/vendor/lib/modules'
+        DEPMOD_MODULES_ROOT="${DEPMOD_DIR_ROOT}/vendor/lib/modules"
 
         vendor_dlkm_modules_list="${PREBUILTS}/vendor_dlkm.modules.include"
         vendor_dlkm_modules_load="${VENDOR_DLKM_STAGING_ROOT}/modules.load"
@@ -1418,7 +1421,7 @@ runs:
         rm -rf ${VENDOR_DLKM_STAGING_DIR}
 
         # Create folder of highest depth amongst all
-        mkdir -p "${DEPMOD_DIR_ROOT}"
+        mkdir -p "${DEPMOD_MODULES_ROOT}"
 
         # add prebuilt files
         cd "${VENDOR_DLKM_STAGING_ROOT}"
@@ -1448,18 +1451,18 @@ runs:
           cp "${PREBUILTS}/system_dlkm.modules.blocklist" "${VENDOR_DLKM_STAGING_ROOT}"
         fi
 
-        # copy modules to DEPMOD_DIR_ROOT
+        # copy modules to DEPMOD_MODULES_ROOT
         # NOTE: do depmod from DEPMOD_DIR
         cd "${MODULES_STAGING_ROOT}"
         missing_modules=$(mktemp)
         while IFS= read -r module || [[ -n "${module}" ]]; do
           module_path=$(find . -name "${module}" -print -quit)
           if [[ -n "${module_path}" ]]; then
-            cp "${module_path}" "${DEPMOD_DIR_ROOT}"
+            cp "${module_path}" "${DEPMOD_MODULES_ROOT}"
           else
             if [[ -f "${PREBUILTS}/proprietary/${module}" ]]; then
               echo "::note:: Using ${module} from prebuilts."
-              cp "${PREBUILTS}/proprietary/${module}" "${DEPMOD_DIR_ROOT}/${module}"
+              cp "${PREBUILTS}/proprietary/${module}" "${DEPMOD_MODULES_ROOT}/${module}"
             else
               echo "WARNING: ${module} not found" >&2
               echo "${module}" >> "${missing_modules}"
@@ -1522,6 +1525,11 @@ runs:
         cd "${DEPMOD_DIR}"
         echo "::note:: Performing depmod"
         depmod -F "${DIST_DIR}/System.map" -b . "${UNAME}"
+
+        # depmod writes paths relative to lib/modules/${UNAME}/ with no leading slash
+        # runtime expects absolute /vendor/lib/modules/... paths
+        # due to our previous trick, we already have vendor/lib/modules, just need to prefix '/'
+        sed -i 's#vendor/lib/modules#/vendor/lib/modules#g' "${DEPMOD_DIR_ROOT}/modules.dep"
 
         cp -p "${DEPMOD_DIR_ROOT}"/modules.{alias,dep,softdep} "${VENDOR_DLKM_STAGING_ROOT}"
 
