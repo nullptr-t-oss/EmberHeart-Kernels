@@ -873,6 +873,7 @@ runs:
 
           AVBTOOL_ARGS+=("--algorithm" "${AVB_SIGN_BOOT_ALGO}")
           AVBTOOL_ARGS+=("--key" "${AVB_SIGN_BOOT_KEY}")
+          AVBTOOL_ARGS+=("--rollback_index" "${AVB_SIGN_BOOT_ROLLBACK_INDEX:-0}")
 
           avbtool add_hash_footer  "${AVBTOOL_ARGS[@]}"
             
@@ -1061,6 +1062,8 @@ runs:
 
         AVB_SIGN_SYSTEM_DLKM_ALGO=${AVB_SIGN_SYSTEM_DLKM_ALGO:-sha256}
         AVBTOOL_ARGS+=("--hash_algorithm" "${AVB_SIGN_SYSTEM_DLKM_ALGO}")
+
+        AVBTOOL_ARGS+=("--rollback_index" "${AVB_SIGN_SYSTEM_DLKM_ROLLBACK_INDEX:-0}")
 
         if [[ -n "${SYSTEM_DLKM_FEC_NUM_ROOTS:-}" ]] && command -v fec >/dev/null 2>&1; then
           AVBTOOL_ARGS+=("--fec_num_roots" "${SYSTEM_DLKM_FEC_NUM_ROOTS}")
@@ -1361,6 +1364,7 @@ runs:
 
           AVBTOOL_ARGS+=("--algorithm" "${AVB_SIGN_VENDOR_BOOT_ALGO}")
           AVBTOOL_ARGS+=("--key" "${AVB_SIGN_VENDOR_BOOT_KEY}")
+          AVBTOOL_ARGS+=("--rollback_index" "${AVB_SIGN_VENDOR_BOOT_ROLLBACK_INDEX:-0}")
 
           avbtool add_hash_footer "${AVBTOOL_ARGS[@]}"
           set +x
@@ -1609,6 +1613,8 @@ runs:
 
         AVB_SIGN_VENDOR_DLKM_ALGO=${AVB_SIGN_VENDOR_DLKM_ALGO:-sha256}
         AVBTOOL_ARGS+=("--hash_algorithm" "${AVB_SIGN_VENDOR_DLKM_ALGO}")
+
+        AVBTOOL_ARGS+=("--rollback_index" "${AVB_SIGN_VENDOR_DLKM_ROLLBACK_INDEX:-0}")
 
         if [[ -n "${VENDOR_DLKM_FEC_NUM_ROOTS:-}" ]] && command -v fec >/dev/null 2>&1; then
           AVBTOOL_ARGS+=("--fec_num_roots" "${VENDOR_DLKM_FEC_NUM_ROOTS}")
