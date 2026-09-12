@@ -658,13 +658,13 @@ runs:
       shell: bash
       run: |
         echo "WARNING: Deleting build cache..." >&2
-        gh cache delete cache-${{ env.CODENAME }}-${{ env.OS_SHORT }}-${{ inputs.optimize_level }}-${{ env.KERNEL_VERSION }} || true
+        gh cache delete cache-${{ env.CODENAME }}-${{ env.OS_SHORT }}-${{ inputs.optimize_level }}-${{ inputs.kernel_uname }}-${{ env.KERNEL_VERSION }} || true
 
     - name: Save build cache
       uses: actions/cache/save@v5
       with:
         path: ${{ env.OUT_DIR }}
-        key: cache-${{ env.CODENAME }}-${{ env.OS_SHORT }}-${{ inputs.optimize_level }}-${{ env.KERNEL_VERSION }}
+        key: cache-${{ env.CODENAME }}-${{ env.OS_SHORT }}-${{ inputs.optimize_level }}-${{ inputs.kernel_uname }}-${{ env.KERNEL_VERSION }}
 
     - name: Create Kernel ZIP
       id: create_ak3_zip

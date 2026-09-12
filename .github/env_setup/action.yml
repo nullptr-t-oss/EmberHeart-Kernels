@@ -30,6 +30,10 @@ inputs:
     required: false
     type: string
     default: O2  # Choices: O2 or O3
+  kernel_uname:
+    required: false
+    type: string
+    default: ""
 
 outputs:
   os:
@@ -433,7 +437,7 @@ runs:
       uses: actions/cache/restore@v5
       with:
         path: ${{ env.OUT_DIR }}
-        key: cache-${{ env.CODENAME }}-${{ env.OS_SHORT }}-${{ inputs.optimize_level }}-${{ env.KERNEL_VERSION }}
+        key: cache-${{ env.CODENAME }}-${{ env.OS_SHORT }}-${{ inputs.optimize_level }}-${{ inputs.kernel_uname }}-${{ env.KERNEL_VERSION }}
 
     - name: Fast build mtime hack
       shell: bash

@@ -290,6 +290,7 @@ jobs:
           msm_branch_or_commit: ${{ inputs.msm_branch_or_commit }}
           vendor_branch_or_commit: ${{ inputs.vendor_branch_or_commit }}
           optimize_level: ${{ inputs.optimize_level }}
+          kernel_uname: ${{ inputs.kernel_uname }}
 
       - name: Kernel modifications
         id: _kernel
