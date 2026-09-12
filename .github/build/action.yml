@@ -956,6 +956,12 @@ runs:
           exit 1
         fi
 
+        for file in modules.builtin modules.builtin.modinfo; do
+          if [[ -f "${MODULES_STAGING_ROOT}/${file}" ]]; then
+            cp "${MODULES_STAGING_ROOT}/${file}" "${DEPMOD_DIR_ROOT}/${file}"
+          fi
+        done
+
         cd "${DEPMOD_DIR}"
         echo "::note:: Performing depmod"
         depmod -F "${DIST_DIR}/System.map" -b . "${UNAME}"
