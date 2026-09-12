@@ -352,7 +352,9 @@ runs:
       run: |
         if [[ -d "${ROOT_DIR}/build/build-tools/path/linux-x86" ]]; then
           echo "${ROOT_DIR}/build/build-tools/path/linux-x86" >> "${GITHUB_PATH}"
-        elif [[ -d "${ROOT_DIR}/prebuilts/kernel-build-tools/linux-x86/bin" ]]; then
+        fi
+
+        if [[ -d "${ROOT_DIR}/prebuilts/kernel-build-tools/linux-x86/bin" ]]; then
           echo "${ROOT_DIR}/prebuilts/kernel-build-tools/linux-x86/bin" >> "${GITHUB_PATH}"
         elif [[ -d "${ROOT_DIR}/prebuilts/kernel-build-tools/linux_musl-x86/bin" ]]; then
           echo "${ROOT_DIR}/prebuilts/kernel-build-tools/linux_musl-x86/bin" >> "${GITHUB_PATH}"
